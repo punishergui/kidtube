@@ -27,12 +27,20 @@ async def lifespan(_app: FastAPI):
     run_migrations(engine, Path(__file__).parent / "db" / "migrations")
 
     stop_event = asyncio.Event()
-    sync_task = asyncio.create_task(periodic_sync(stop_event))
+    sync_task: asyncio.Task[None] | None = None
+    if settings.sync_enabled:
+        sync_task = asyncio.create_task(periodic_sync(stop_event))
+
     try:
         yield
     finally:
         stop_event.set()
-        await sync_task
+        if sync_task:
+            sync_task.cancel()
+            try:
+                await sync_task
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)

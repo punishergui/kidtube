@@ -12,6 +12,7 @@ from app.core.config import settings
 YOUTUBE_API_BASE_URL = "https://www.googleapis.com/youtube/v3"
 _CHANNEL_ID_PATTERN = re.compile(r"^UC[\w-]{22}$")
 _VIDEO_ID_PATTERN = re.compile(r"^[\w-]{11}$")
+_YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com"}
 
 
 class YouTubeResolveError(Exception):
@@ -128,7 +129,7 @@ def parse_channel_input(input: str) -> ParsedChannelInput:
     if parsed.scheme and parsed.netloc:
         host = parsed.netloc.lower()
         path = parsed.path.strip("/")
-        if "youtube.com" in host:
+        if host in _YOUTUBE_HOSTS:
             segments = path.split("/") if path else []
             if (
                 len(segments) >= 2
@@ -167,12 +168,43 @@ async def resolve_handle_to_channel_id(
         client=client,
     )
     items = payload.get("items", [])
-    if not items:
-        raise YouTubeResolveError(f"Unable to resolve handle '@{handle}'.")
-    channel_id = items[0].get("id")
-    if not channel_id:
-        raise YouTubeResolveError(f"YouTube response for '@{handle}' did not include a channel id.")
-    return channel_id
+    if items:
+        channel_id = items[0].get("id")
+        if channel_id:
+            return channel_id
+
+    fallback = await _youtube_get(
+        "/search",
+        {
+            "part": "snippet",
+            "type": "channel",
+            "maxResults": 5,
+            "q": handle,
+            "key": api_key,
+        },
+        client=client,
+    )
+    best_match: str | None = None
+    lowered = handle.lower()
+    for item in fallback.get("items", []):
+        snippet = item.get("snippet", {})
+        channel_title = (snippet.get("channelTitle") or "").lower()
+        custom_url = (snippet.get("customUrl") or "").lstrip("@").lower()
+        candidate = item.get("snippet", {}).get("channelId")
+        if not candidate:
+            continue
+
+        if custom_url == lowered:
+            return candidate
+        if channel_title.replace(" ", "") == lowered:
+            return candidate
+        if not best_match:
+            best_match = candidate
+
+    if best_match:
+        return best_match
+
+    raise YouTubeResolveError(f"Unable to resolve handle '@{handle}'.")
 
 
 async def resolve_video_to_channel_id(
