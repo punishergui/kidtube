@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -260,4 +260,4 @@ async def _youtube_get(
 
 
 def utcnow() -> datetime:
-    return datetime.utcnow()
+    return datetime.now(UTC)

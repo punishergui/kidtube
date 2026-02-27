@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
@@ -51,8 +51,8 @@ async def refresh_channel(channel_id: int) -> None:
         channel.banner_url = metadata.get("banner_url")
         channel.resolve_status = "ok"
         channel.resolve_error = None
-        channel.resolved_at = datetime.utcnow()
-        channel.last_sync = datetime.utcnow()
+        channel.resolved_at = datetime.now(UTC)
+        channel.last_sync = datetime.now(UTC)
         session.add(channel)
 
         store_videos(session, channel.id, videos)
