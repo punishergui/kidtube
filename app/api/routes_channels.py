@@ -14,7 +14,7 @@ from app.db.session import get_session
 from app.services.sync import store_videos
 from app.services.youtube import fetch_latest_videos, resolve_channel
 
-router = APIRouter(prefix="/api/channels", tags=["channels"])
+router = APIRouter()
 
 
 class ChannelCreate(BaseModel):

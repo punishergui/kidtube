@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from app.db.models import Kid
 from app.db.session import get_session
 
-router = APIRouter(prefix="/api/kids", tags=["kids"])
+router = APIRouter()
 
 
 class KidCreate(BaseModel):
