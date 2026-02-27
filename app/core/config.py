@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,7 +23,14 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     discord_public_key: str | None = Field(default=None, alias="DISCORD_PUBLIC_KEY")
     youtube_api_key: str | None = Field(default=None, alias="YOUTUBE_API_KEY")
-    sync_interval_seconds: int = Field(default=900, alias="SYNC_INTERVAL_SECONDS")
+    sync_enabled: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("KIDTUBE_SYNC_ENABLED", "SYNC_ENABLED"),
+    )
+    sync_interval_seconds: int = Field(
+        default=900,
+        validation_alias=AliasChoices("KIDTUBE_SYNC_INTERVAL_SECONDS", "SYNC_INTERVAL_SECONDS"),
+    )
     sync_max_videos_per_channel: int = Field(default=15, alias="SYNC_MAX_VIDEOS_PER_CHANNEL")
     http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
 
