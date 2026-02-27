@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -76,7 +76,7 @@ async def create_channel(
         channel.banner_url = metadata.get("banner_url")
         channel.resolve_status = "ok"
         channel.resolve_error = None
-        channel.resolved_at = datetime.utcnow()
+        channel.resolved_at = datetime.now(timezone.utc)  # noqa: UP017
     except Exception as exc:
         channel.resolve_status = "failed"
         channel.resolve_error = str(exc)
@@ -94,7 +94,7 @@ async def create_channel(
         try:
             videos = await fetch_latest_videos(channel.youtube_id)
             store_videos(session, channel.id, videos)
-            channel.last_sync = datetime.utcnow()
+            channel.last_sync = datetime.now(timezone.utc)  # noqa: UP017
             session.add(channel)
             session.commit()
             session.refresh(channel)
@@ -124,7 +124,7 @@ def patch_channel(
         setattr(channel, field, value)
 
     if channel.blocked and not blocked_before:
-        channel.blocked_at = datetime.utcnow()
+        channel.blocked_at = datetime.now(timezone.utc)  # noqa: UP017
         session.execute(
             text("DELETE FROM videos WHERE channel_id = :channel_id"),
             {"channel_id": channel.id},
