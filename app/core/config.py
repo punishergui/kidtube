@@ -1,7 +1,15 @@
+import os
 from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def _default_database_url() -> str:
+    db_path = os.getenv("KIDTUBE_DB_PATH")
+    if db_path:
+        return f"sqlite:///{db_path}"
+    return "sqlite:////data/kidtube.db"
 
 
 class Settings(BaseSettings):
@@ -11,7 +19,7 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     host: str = "0.0.0.0"
     port: int = 2018
-    database_url: str = "sqlite:////data/kidtube.db"
+    database_url: str = Field(default_factory=_default_database_url, alias="DATABASE_URL")
     log_level: str = "INFO"
     discord_public_key: str | None = Field(default=None, alias="DISCORD_PUBLIC_KEY")
 
