@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KidTube</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="header">KidTube</header>
+      <aside class="sidebar">
+        <nav>
+          <a href="/" data-route="/" class="nav-link">Dashboard</a>
+          <a href="/channels" data-route="/channels" class="nav-link">Channels</a>
+          <a href="/kids" data-route="/kids" class="nav-link">Kids</a>
+          <a href="/sync" data-route="/sync" class="nav-link">Sync</a>
+        </nav>
+      </aside>
+      <main class="main-content">
+        <div id="alerts" aria-live="polite"></div>
+        <section id="page-content"></section>
+      </main>
+    </div>
+    <script type="module" src="/static/app.js"></script>
+  </body>
+</html>
