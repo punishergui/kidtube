@@ -6,11 +6,9 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from app.api.routes_channels import router as channels_router
+from app.api.router import api_router
 from app.api.routes_discord import router as discord_router
-from app.api.routes_feed import router as feed_router
 from app.api.routes_health import router as health_router
-from app.api.routes_kids import router as kids_router
 from app.core.config import settings
 from app.core.logging import setup_logging
 from app.core.version import get_version_payload
@@ -39,9 +37,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 app.include_router(health_router)
-app.include_router(kids_router)
-app.include_router(channels_router)
-app.include_router(feed_router)
+app.include_router(api_router)
 app.include_router(discord_router)
 
 
