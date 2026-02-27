@@ -37,7 +37,9 @@ def test_channel_lookup_known_handle_returns_preview(monkeypatch) -> None:
             'video_count': 8,
         }
 
-    async def fake_fetch_latest_videos(_channel_id: str, max_results: int = 10) -> list[dict[str, str]]:
+    async def fake_fetch_latest_videos(
+        _channel_id: str, max_results: int = 10
+    ) -> list[dict[str, str]]:
         assert max_results == 6
         return [
             {
@@ -48,8 +50,14 @@ def test_channel_lookup_known_handle_returns_preview(monkeypatch) -> None:
             }
         ]
 
-    monkeypatch.setattr('app.api.routes_channel_lookup.resolve_channel', fake_resolve_channel)
-    monkeypatch.setattr('app.api.routes_channel_lookup.fetch_latest_videos', fake_fetch_latest_videos)
+    monkeypatch.setattr(
+        'app.api.routes_channel_lookup.resolve_channel',
+        fake_resolve_channel,
+    )
+    monkeypatch.setattr(
+        'app.api.routes_channel_lookup.fetch_latest_videos',
+        fake_fetch_latest_videos,
+    )
 
     with TestClient(app) as client:
         response = client.get('/api/channel-lookup', params={'query': '@SciShowKids'})

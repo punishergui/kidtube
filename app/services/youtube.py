@@ -277,6 +277,14 @@ async def fetch_channel_metadata(
     subscriber_count = stats.get("subscriberCount")
     video_count = stats.get("videoCount")
 
+    subscriber_count_int: int | None = None
+    if subscriber_count is not None and str(subscriber_count).isdigit():
+        subscriber_count_int = int(subscriber_count)
+
+    video_count_int: int | None = None
+    if video_count is not None and str(video_count).isdigit():
+        video_count_int = int(video_count)
+
     return {
         "channel_id": item.get("id", channel_id),
         "title": snippet.get("title"),
@@ -284,8 +292,8 @@ async def fetch_channel_metadata(
         "avatar_url": avatar.get("url"),
         "banner_url": branding.get("bannerExternalUrl"),
         "description": snippet.get("description"),
-        "subscriber_count": int(subscriber_count) if subscriber_count and str(subscriber_count).isdigit() else None,
-        "video_count": int(video_count) if video_count and str(video_count).isdigit() else None,
+        "subscriber_count": subscriber_count_int,
+        "video_count": video_count_int,
     }
 
 
