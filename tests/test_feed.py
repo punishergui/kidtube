@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.models import Channel, Video
@@ -23,8 +24,9 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch) -> None:
     now = datetime.now(timezone.utc)  # noqa: UP017
 
     with Session(engine) as session:
-        session.exec("DELETE FROM videos")
-        session.exec("DELETE FROM channels")
+        session.exec(text("DELETE FROM videos"))
+        session.exec(text("DELETE FROM channels"))
+        session.commit()
 
         c1 = Channel(youtube_id="UC1234567890123456789012", title="Alpha", resolve_status="ok")
         c2 = Channel(youtube_id="UCabcdefghijklmno123456", title="Beta", resolve_status="ok")
