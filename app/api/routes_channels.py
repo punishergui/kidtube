@@ -125,7 +125,7 @@ def patch_channel(
 
     if channel.blocked and not blocked_before:
         channel.blocked_at = datetime.utcnow()
-        session.exec(
+        session.execute(
             text("DELETE FROM videos WHERE channel_id = :channel_id"),
             {"channel_id": channel.id},
         )
