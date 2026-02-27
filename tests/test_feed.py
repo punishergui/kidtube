@@ -229,7 +229,7 @@ def test_blocking_channel_purges_cached_videos(tmp_path: Path) -> None:
         remaining = session.exec(
             text("SELECT COUNT(*) FROM videos WHERE channel_id = :channel_id"),
             params={"channel_id": channel_id},
-        ).one()[0]
+        ).scalar_one()
     assert remaining == 0
 
     assert feed_response.status_code == 200
