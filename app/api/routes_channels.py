@@ -38,7 +38,10 @@ def list_channels(session: Session = Depends(get_session)) -> list[Channel]:
 
 
 @router.post("", response_model=ChannelRead, status_code=status.HTTP_201_CREATED)
-def create_channel(payload: ChannelCreate, session: Session = Depends(get_session)) -> Channel:
+def create_channel(
+    payload: ChannelCreate,
+    session: Session = Depends(get_session),
+) -> Channel:
     channel = Channel(youtube_id=payload.input.strip())
     session.add(channel)
     try:
@@ -51,7 +54,11 @@ def create_channel(payload: ChannelCreate, session: Session = Depends(get_sessio
 
 
 @router.patch("/{channel_id}", response_model=ChannelRead)
-def patch_channel(channel_id: int, payload: ChannelUpdate, session: Session = Depends(get_session)) -> Channel:
+def patch_channel(
+    channel_id: int,
+    payload: ChannelUpdate,
+    session: Session = Depends(get_session),
+) -> Channel:
     channel = session.get(Channel, channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")

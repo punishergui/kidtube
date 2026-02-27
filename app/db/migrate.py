@@ -25,8 +25,7 @@ def run_migrations(engine, migrations_dir: Path) -> None:  # type: ignore[no-unt
         session.commit()
 
         applied = {
-            row[0]
-            for row in session.exec(text("SELECT filename FROM schema_migrations")).all()
+            row[0] for row in session.exec(text("SELECT filename FROM schema_migrations")).all()
         }
 
         for migration in migrations:

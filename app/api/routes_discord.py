@@ -26,7 +26,10 @@ async def discord_interactions(
     verify_key = VerifyKey(bytes.fromhex(settings.discord_public_key))
 
     try:
-        verify_key.verify(f"{x_signature_timestamp}".encode() + body, bytes.fromhex(x_signature_ed25519))
+        verify_key.verify(
+            f"{x_signature_timestamp}".encode() + body,
+            bytes.fromhex(x_signature_ed25519),
+        )
     except BadSignatureError as exc:
         raise HTTPException(status_code=401, detail="Invalid request signature") from exc
 

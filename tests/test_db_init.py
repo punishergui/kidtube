@@ -21,8 +21,6 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
     }
 
     with Session(engine) as session:
-        rows = session.exec(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).all()
+        rows = session.exec("SELECT name FROM sqlite_master WHERE type='table'").all()
     found_tables = {row[0] for row in rows}
     assert expected_tables.issubset(found_tables)
