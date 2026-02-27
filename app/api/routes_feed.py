@@ -9,7 +9,7 @@ from sqlmodel import Session
 
 from app.db.session import get_session
 
-router = APIRouter(prefix="/api/feed", tags=["feed"])
+router = APIRouter()
 
 
 class FeedItem(BaseModel):

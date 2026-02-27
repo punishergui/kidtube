@@ -7,6 +7,6 @@ from app.api.routes_feed import router as feed_router
 from app.api.routes_kids import router as kids_router
 
 api_router = APIRouter()
-api_router.include_router(kids_router)
-api_router.include_router(channels_router)
-api_router.include_router(feed_router)
+api_router.include_router(channels_router, prefix="/api/channels", tags=["channels"])
+api_router.include_router(feed_router, prefix="/api/feed", tags=["feed"])
+api_router.include_router(kids_router, prefix="/api/kids", tags=["kids"])
