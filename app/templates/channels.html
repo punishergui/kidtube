@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Channels{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Channels</h1>
+</section>
+<form id="add-channel-form" class="panel form-panel">
+  <input name="input" placeholder="@channel, channel ID, or URL" required />
+  <select name="category">
+    <option value="">Category (optional)</option>
+    <option value="education">education</option>
+    <option value="music">music</option>
+    <option value="science">science</option>
+    <option value="cartoons">cartoons</option>
+    <option value="other">other</option>
+  </select>
+  <button type="submit">Add Channel</button>
+</form>
+<div class="table-wrap panel">
+  <table>
+    <thead>
+      <tr>
+        <th>Title</th><th>Input</th><th>YouTube ID</th><th>Resolve</th>
+        <th>Allowed</th><th>Enabled</th><th>Blocked</th><th>Blocked Reason</th>
+      </tr>
+    </thead>
+    <tbody id="channels-body"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/channels.js"></script>
+{% endblock %}

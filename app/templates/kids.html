@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Kids{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Kids</h1>
+</section>
+<form id="add-kid-form" class="panel form-panel">
+  <input name="name" placeholder="Name" required />
+  <input name="avatar_url" placeholder="Avatar URL (optional)" />
+  <input name="daily_limit_minutes" type="number" min="1" placeholder="Daily limit minutes" />
+  <button type="submit">Add Kid</button>
+</form>
+<div class="table-wrap panel">
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Daily limit minutes</th><th>Avatar</th><th>Created</th><th>Actions</th></tr>
+    </thead>
+    <tbody id="kids-body"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/kids.js"></script>
+{% endblock %}
