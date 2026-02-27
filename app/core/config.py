@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     database_url: str = Field(default_factory=_default_database_url, alias="DATABASE_URL")
     log_level: str = "INFO"
     discord_public_key: str | None = Field(default=None, alias="DISCORD_PUBLIC_KEY")
+    youtube_api_key: str | None = Field(default=None, alias="YOUTUBE_API_KEY")
+    sync_interval_seconds: int = Field(default=900, alias="SYNC_INTERVAL_SECONDS")
+    sync_max_videos_per_channel: int = Field(default=15, alias="SYNC_MAX_VIDEOS_PER_CHANNEL")
+    http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
 
     @property
     def sqlite_path(self) -> Path | None:

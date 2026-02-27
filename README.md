@@ -45,6 +45,10 @@ This compose example intentionally avoids hardcoded domains.
 | `DATABASE_URL` | `sqlite:////data/kidtube.db` | SQLAlchemy DB URL |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `DISCORD_PUBLIC_KEY` | *(empty)* | Discord app public key for Ed25519 verification |
+| `YOUTUBE_API_KEY` | *(empty)* | YouTube Data API key (required for handle/video URL resolution and sync) |
+| `SYNC_INTERVAL_SECONDS` | `900` | Background refresh interval for channel/video cache |
+| `SYNC_MAX_VIDEOS_PER_CHANNEL` | `15` | Max videos fetched per channel during sync |
+| `HTTP_TIMEOUT_SECONDS` | `10` | Timeout (seconds) for outbound HTTP requests |
 
 ## API endpoints
 
@@ -55,6 +59,7 @@ This compose example intentionally avoids hardcoded domains.
 - `POST /api/kids`
 - `GET /api/channels`
 - `POST /api/channels`
+- `GET /api/feed/latest-per-channel`
 - `PATCH /api/channels/{id}`
 - `POST /discord/interactions`
 
@@ -73,7 +78,9 @@ curl http://localhost:2018/api/kids
 
 curl -X POST http://localhost:2018/api/channels \
   -H 'Content-Type: application/json' \
-  -d '{"input":"@SciShowKids"}'
+  -d '{"input":"@SciShowKids","category":"science"}'
+
+curl http://localhost:2018/api/feed/latest-per-channel
 
 curl -X PATCH http://localhost:2018/api/channels/1 \
   -H 'Content-Type: application/json' \
