@@ -22,6 +22,15 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
     }
 
     with Session(engine) as session:
-        rows = session.exec(text("SELECT name FROM sqlite_master WHERE type='table'")).all()
-    found_tables = {row[0] for row in rows}
+        rows = session.exec(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        found_tables = {row[0] for row in rows}
+        channel_columns = {
+            row[1] for row in session.exec(text("PRAGMA table_info(channels)"))
+        }
+        indexes = {
+            row[1] for row in session.exec(text("PRAGMA index_list('videos')"))
+        }
+
     assert expected_tables.issubset(found_tables)
+    assert {"input", "resolved_at", "resolve_status", "resolve_error"}.issubset(channel_columns)
+    assert "idx_videos_channel_published_at" in indexes

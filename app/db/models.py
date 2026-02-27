@@ -20,12 +20,16 @@ class Channel(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     youtube_id: str = Field(index=True, unique=True)
+    input: str | None = None
     title: str | None = None
     avatar_url: str | None = None
     banner_url: str | None = None
     category: str | None = None
     enabled: bool = True
     last_sync: datetime | None = None
+    resolved_at: datetime | None = None
+    resolve_status: str = "pending"
+    resolve_error: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
