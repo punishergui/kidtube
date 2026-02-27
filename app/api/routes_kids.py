@@ -10,7 +10,6 @@ from app.db.session import get_session
 
 router = APIRouter()
 
-APP_DIR = Path(__file__).resolve().parents[1]
 ALLOWED_AVATAR_TYPES = {
     "image/png",
     "image/jpeg",
@@ -39,12 +38,14 @@ class KidRead(BaseModel):
 
 
 def _avatar_path(kid_id: int) -> Path:
-    upload_dir = APP_DIR / "static" / "uploads" / "kids" / str(kid_id)
+    app_dir = Path(__file__).resolve().parents[1]
+    upload_dir = app_dir / "static" / "uploads" / "kids" / str(kid_id)
     return upload_dir / "avatar.png"
 
 
 def _delete_avatar_file(kid_id: int) -> None:
-    _avatar_path(kid_id).unlink(missing_ok=True)
+    avatar_path = _avatar_path(kid_id)
+    avatar_path.unlink(missing_ok=True)
 
 
 @router.get("", response_model=list[KidRead])
@@ -89,9 +90,10 @@ async def upload_kid_avatar(
     if (file.content_type or "") not in ALLOWED_AVATAR_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported avatar file type")
 
-    avatar_path = _avatar_path(kid_id)
-    avatar_path.parent.mkdir(parents=True, exist_ok=True)
-    _delete_avatar_file(kid_id)
+    app_dir = Path(__file__).resolve().parents[1]
+    upload_dir = app_dir / "static" / "uploads" / "kids" / str(kid_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    avatar_path = upload_dir / "avatar.png"
     data = await file.read()
     avatar_path.write_bytes(data)
 

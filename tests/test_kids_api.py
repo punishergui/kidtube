@@ -40,7 +40,6 @@ def test_patch_kid_updates_daily_limit_minutes(tmp_path: Path) -> None:
                 f'/api/kids/{kid_id}/avatar',
                 files={'file': ('avatar.png', b'\x89PNG\r\n\x1a\n', 'image/png')},
             )
-            delete_avatar_response = client.delete(f'/api/kids/{kid_id}/avatar')
     finally:
         app.dependency_overrides.pop(get_session, None)
 
@@ -51,6 +50,12 @@ def test_patch_kid_updates_daily_limit_minutes(tmp_path: Path) -> None:
     avatar_url = upload_response.json()['avatar_url']
     assert avatar_url.startswith(f'/static/uploads/kids/{kid_id}/avatar.png?v=')
     assert avatar_file.exists()
+
+    try:
+        with _client_for_engine(engine) as client:
+            delete_avatar_response = client.delete(f'/api/kids/{kid_id}/avatar')
+    finally:
+        app.dependency_overrides.pop(get_session, None)
 
     assert delete_avatar_response.status_code == 200
     assert delete_avatar_response.json()['avatar_url'] is None
