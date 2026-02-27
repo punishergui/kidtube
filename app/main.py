@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.api.routes_discord import router as discord_router
@@ -15,6 +16,7 @@ from app.core.version import get_version_payload
 from app.db.migrate import run_migrations
 from app.db.session import engine
 from app.services.sync import periodic_sync
+from app.ui import router as ui_router
 
 
 @asynccontextmanager
@@ -44,9 +46,11 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(health_router)
 app.include_router(api_router)
 app.include_router(discord_router)
+app.include_router(ui_router)
 
 
 @app.get("/version")
