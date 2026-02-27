@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Sync{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Sync</h1>
+</section>
+<p class="small">Run an on-demand sync for enabled channels.</p>
+<button id="run-sync" class="btn-primary">Run Sync Now</button>
+<section id="sync-result" class="sync-result panel"></section>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/sync.js"></script>
+{% endblock %}

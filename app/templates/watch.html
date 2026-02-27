@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Watch{% endblock %}
+{% block content %}
+<section class="page-head">
+  <a href="/" class="btn-secondary">← Back to Dashboard</a>
+</section>
+<section id="watch-container" class="watch-layout" data-youtube-id="{{ youtube_id }}">
+  <article class="panel" style="padding:1rem;">
+    <h2>Video not found</h2>
+    <p class="small">If this video was recently added, try running a sync.</p>
+  </article>
+</section>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/watch.js"></script>
+{% endblock %}

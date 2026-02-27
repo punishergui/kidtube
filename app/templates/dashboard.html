@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Dashboard{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Dashboard</h1>
+  <a class="btn-primary" href="/sync">Run Sync</a>
+</section>
+<section id="dashboard-grid" class="card-grid"></section>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/dashboard.js"></script>
+{% endblock %}
