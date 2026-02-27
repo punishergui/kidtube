@@ -5,18 +5,31 @@ const form = document.getElementById('add-kid-form');
 
 function row(kid) {
   return `
-    <tr>
-      <td>${kid.name}</td>
-      <td><input data-limit="${kid.id}" type="number" min="1" value="${kid.daily_limit_minutes || ''}" /></td>
-      <td>${kid.avatar_url ? `<img class="avatar" src="${kid.avatar_url}" alt="${kid.name}"/>` : '—'}</td>
-      <td>${formatDate(kid.created_at)}</td>
-      <td><button data-save="${kid.id}">Save</button></td>
-    </tr>
+    <article class="panel admin-card kid-admin-card">
+      <div class="admin-card-head">
+        <h3>${kid.name}</h3>
+        <span class="small">Joined ${formatDate(kid.created_at)}</span>
+      </div>
+      <div class="kid-admin-meta">
+        ${kid.avatar_url ? `<img class="kid-avatar" src="${kid.avatar_url}" alt="${kid.name}" />` : '<span class="kid-avatar kid-initials">★</span>'}
+        <label>
+          Daily limit minutes
+          <input data-limit="${kid.id}" type="number" min="1" value="${kid.daily_limit_minutes || ''}" />
+        </label>
+      </div>
+      <button class="btn-primary" data-save="${kid.id}">Save</button>
+    </article>
   `;
 }
 
 async function loadKids() {
   const kids = await requestJson('/api/kids');
+
+  if (!kids.length) {
+    body.innerHTML = '<article class="panel empty-state">No kid profiles yet. Add one above.</article>';
+    return;
+  }
+
   body.innerHTML = kids.map(row).join('');
 
   body.querySelectorAll('button[data-save]').forEach((button) => {

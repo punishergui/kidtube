@@ -14,19 +14,9 @@
     <option value="cartoons">cartoons</option>
     <option value="other">other</option>
   </select>
-  <button type="submit">Add Channel</button>
+  <button type="submit" class="btn-primary">Add Channel</button>
 </form>
-<div class="table-wrap panel">
-  <table>
-    <thead>
-      <tr>
-        <th>Title</th><th>Input</th><th>YouTube ID</th><th>Resolve</th>
-        <th>Allowed</th><th>Enabled</th><th>Blocked</th><th>Blocked Reason</th>
-      </tr>
-    </thead>
-    <tbody id="channels-body"></tbody>
-  </table>
-</div>
+<section id="channels-body" class="admin-list"></section>
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/channels.js"></script>

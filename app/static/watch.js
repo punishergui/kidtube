@@ -5,9 +5,9 @@ const youtubeId = container?.dataset.youtubeId;
 
 function renderNotFound() {
   container.innerHTML = `
-    <article class="panel" style="padding:1rem;">
+    <article class="panel watch-details">
       <h2>Video not found</h2>
-      <p class="small">This video is not available in KidTube yet. Try running a sync and come back.</p>
+      <p class="small">This video is not available in KidTube yet. Try refreshing and come back.</p>
     </article>
   `;
 }
@@ -31,7 +31,7 @@ async function loadVideo() {
           allowfullscreen
         ></iframe>
       </section>
-      <article class="panel" style="padding:1rem;">
+      <article class="panel watch-details">
         <h2>${video.title}</h2>
         <div class="channel-row">
           <img class="avatar" src="${video.channel_avatar_url || ''}" alt="" />

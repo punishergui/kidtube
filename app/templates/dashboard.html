@@ -1,11 +1,34 @@
 {% extends "base.html" %}
 {% block title %}KidTube · Dashboard{% endblock %}
 {% block content %}
-<section class="page-head">
-  <h1>Dashboard</h1>
-  <a class="btn-primary" href="/sync">Run Sync</a>
+<section class="page-head dashboard-head">
+  <div>
+    <h1>Hey Super Star! ✨</h1>
+    <p class="small">Pick a profile and discover safe videos.</p>
+  </div>
+  <a class="btn-primary" href="/sync">Refresh Videos</a>
 </section>
-<section id="dashboard-grid" class="card-grid"></section>
+
+<section class="panel kid-panel">
+  <div class="section-head">
+    <h2>Choose a Kid Profile</h2>
+  </div>
+  <div id="kid-selector" class="kid-selector"></div>
+</section>
+
+<section class="panel category-panel">
+  <div class="section-head">
+    <h2>Categories</h2>
+  </div>
+  <div id="category-pills" class="category-pills" role="tablist" aria-label="Video categories"></div>
+</section>
+
+<section class="video-section">
+  <div class="section-head">
+    <h2>New Adventures</h2>
+  </div>
+  <section id="dashboard-grid" class="card-grid"></section>
+</section>
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/dashboard.js"></script>

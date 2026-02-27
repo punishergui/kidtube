@@ -10,16 +10,20 @@ runButton.addEventListener('click', async () => {
   try {
     const response = await requestJson('/api/sync/run', { method: 'POST', body: '{}' });
     const failures = response.failures?.length
-      ? `<table><thead><tr><th>ID</th><th>Input</th><th>Error</th></tr></thead><tbody>${response.failures
-          .map((failure) => `<tr><td>${failure.id}</td><td>${failure.input || '—'}</td><td>${failure.error}</td></tr>`)
-          .join('')}</tbody></table>`
+      ? `<div class="failure-list">${response.failures
+          .map(
+            (failure) => `<article class="failure-card"><strong>#${failure.id}</strong><p>${failure.input || '—'}</p><p>${failure.error}</p></article>`,
+          )
+          .join('')}</div>`
       : '<p>No failures 🎉</p>';
 
     result.innerHTML = `
-      <p><strong>channels_seen:</strong> ${response.channels_seen}</p>
-      <p><strong>resolved:</strong> ${response.resolved}</p>
-      <p><strong>synced:</strong> ${response.synced}</p>
-      <p><strong>failed:</strong> ${response.failed}</p>
+      <div class="sync-stats">
+        <p><strong>channels_seen:</strong> ${response.channels_seen}</p>
+        <p><strong>resolved:</strong> ${response.resolved}</p>
+        <p><strong>synced:</strong> ${response.synced}</p>
+        <p><strong>failed:</strong> ${response.failed}</p>
+      </div>
       <h3>Failures</h3>
       ${failures}
       <p><a href="/" class="btn-secondary">Back to Dashboard</a></p>

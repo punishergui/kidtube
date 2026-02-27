@@ -7,19 +7,28 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body data-page="{{ page }}">
+    <div class="sparkles" aria-hidden="true"></div>
     <div class="app-shell">
-      <header class="header">
-        <a href="/" class="brand">KidTube</a>
+      <header class="top-header">
+        <div class="header-inner">
+          <a href="/" class="brand-wrap" aria-label="KidTube home">
+            <span class="brand-icon">⭐</span>
+            <span class="brand-text">KidTube</span>
+          </a>
+          <form class="header-search" role="search" onsubmit="return false;" aria-label="Search videos">
+            <span aria-hidden="true">🔍</span>
+            <input type="search" placeholder="Search videos, channels, and topics" aria-label="Search" />
+          </form>
+        </div>
       </header>
-      <aside class="sidebar">
-        <nav>
+
+      <main class="main-content">
+        <nav class="top-nav" aria-label="Main navigation">
           <a href="/" data-route="/" class="nav-link">Dashboard</a>
           <a href="/channels" data-route="/channels" class="nav-link">Channels</a>
           <a href="/kids" data-route="/kids" class="nav-link">Kids</a>
           <a href="/sync" data-route="/sync" class="nav-link">Sync</a>
         </nav>
-      </aside>
-      <main class="main-content">
         <div id="alerts" aria-live="polite"></div>
         {% block content %}{% endblock %}
       </main>
