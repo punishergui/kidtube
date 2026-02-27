@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
-from sqlmodel import Session
+from sqlmodel import Session, create_engine
 
+from app.db.migrate import run_migrations
 from app.db.models import Channel, Video
-from app.db.session import engine
+from app.db.session import get_session
 from app.main import app
 
 
-def test_latest_per_channel_uses_cached_db_only(monkeypatch) -> None:
+def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
         "app.services.youtube.fetch_latest_videos",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("network disabled")),
@@ -20,6 +22,16 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch) -> None:
         "app.services.youtube.fetch_channel_metadata",
         lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("network disabled")),
     )
+
+    db_path = tmp_path / "feed-test.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    def get_test_session():
+        with Session(engine) as session:
+            yield session
+
+    app.dependency_overrides[get_session] = get_test_session
 
     now = datetime.now(timezone.utc)  # noqa: UP017
 
@@ -65,8 +77,11 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch) -> None:
         )
         session.commit()
 
-    with TestClient(app) as client:
-        response = client.get("/api/feed/latest-per-channel")
+    try:
+        with TestClient(app) as client:
+            response = client.get("/api/feed/latest-per-channel")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
 
     assert response.status_code == 200
     payload = response.json()
