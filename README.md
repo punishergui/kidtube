@@ -85,7 +85,29 @@ curl http://localhost:2018/api/feed/latest-per-channel
 curl -X PATCH http://localhost:2018/api/channels/1 \
   -H 'Content-Type: application/json' \
   -d '{"enabled":false,"category":"science"}'
+
+# Allow a channel (whitelist)
+curl -X PATCH http://localhost:2018/api/channels/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"allowed":true}'
+
+# Block a channel with an admin reason (absolute override + cached video purge)
+curl -X PATCH http://localhost:2018/api/channels/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"blocked":true,"blocked_reason":"manual admin block"}'
+
+# Unblock without auto-allowing
+curl -X PATCH http://localhost:2018/api/channels/1 \
+  -H 'Content-Type: application/json' \
+  -d '{"blocked":false}'
 ```
+
+## Channel allow/block policy
+
+- Default-safe stance: newly created channels have `allowed=false`.
+- Kid-facing feed only includes channels where `enabled=true`, `allowed=true`, and `blocked=false`.
+- `blocked=true` is an absolute override: blocked channels are excluded from kid-facing feed responses and background sync, and cached videos are purged when a channel is newly blocked.
+- Unblocking a channel (`blocked=false`) does **not** auto-allow it.
 
 ## Discord verification notes
 

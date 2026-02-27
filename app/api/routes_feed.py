@@ -37,6 +37,8 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
         FROM channels c
         JOIN videos v ON v.channel_id = c.id
         WHERE c.enabled = 1
+          AND c.allowed = 1
+          AND c.blocked = 0
           AND v.id = (
             SELECT vv.id
             FROM videos vv
