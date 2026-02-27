@@ -1,17 +1,23 @@
 import { formatDate, requestJson, showToast } from '/static/app.js';
 
 const grid = document.getElementById('dashboard-grid');
+const latestGrid = document.getElementById('latest-channel-grid');
 const kidSelector = document.getElementById('kid-selector');
 const categoryPills = document.getElementById('category-pills');
+const moreButton = document.getElementById('see-more-btn');
 
 const categories = ['all', 'education', 'fun'];
 const queryParams = new URLSearchParams(window.location.search);
 
 const state = {
   items: [],
+  latestPerChannel: [],
   category: localStorage.getItem('kidtube-category') || 'all',
   kidId: Number(localStorage.getItem('kidtube-active-kid')) || null,
-  channelFilter: queryParams.get('channel') || null,
+  channelFilter: queryParams.get('channel_id') || null,
+  offset: 0,
+  limit: 30,
+  hasMore: true,
 };
 
 function formatDuration(seconds) {
@@ -29,7 +35,7 @@ function normalizeCategory(item) {
 
 function categoryMatches(item) {
   if (state.category !== 'all' && normalizeCategory(item) !== state.category) return false;
-  if (state.channelFilter && item.channel_youtube_id !== state.channelFilter) return false;
+  if (state.channelFilter && String(item.channel_id) !== String(state.channelFilter)) return false;
   return true;
 }
 
@@ -115,26 +121,53 @@ function renderVideos() {
   const visible = state.items.filter(categoryMatches);
   if (!visible.length) {
     grid.innerHTML = '<article class="panel empty-state">No videos in this category yet. Try another filter!</article>';
-    return;
+  } else {
+    grid.innerHTML = visible.map(card).join('');
   }
 
-  grid.innerHTML = visible.map(card).join('');
+  if (latestGrid) {
+    latestGrid.innerHTML = state.latestPerChannel.length
+      ? state.latestPerChannel.map(card).join('')
+      : '<article class="panel empty-state">No latest-per-channel videos yet.</article>';
+  }
+}
+
+async function loadMore() {
+  if (!state.hasMore) return;
+
+  const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
+  if (state.channelFilter) params.set('channel_id', state.channelFilter);
+  if (state.category !== 'all') params.set('category', state.category);
+  if (state.kidId) params.set('kid_id', String(state.kidId));
+
+  const page = await requestJson(`/api/feed?${params.toString()}`);
+  state.items.push(...page);
+  state.offset += page.length;
+  state.hasMore = page.length === state.limit;
+
+  if (moreButton) {
+    moreButton.hidden = !state.hasMore;
+    moreButton.disabled = false;
+  }
+
+  renderVideos();
 }
 
 async function loadDashboard() {
   try {
-    const [items, kids] = await Promise.all([requestJson('/api/feed/latest-per-channel'), requestJson('/api/kids')]);
-    state.items = items;
-    if (localStorage.getItem('kidtube-refresh-feed-once') === '1') {
-      localStorage.removeItem('kidtube-refresh-feed-once');
-      state.items = await requestJson('/api/feed/latest-per-channel');
-    }
+    const [kids, latest] = await Promise.all([requestJson('/api/kids'), requestJson('/api/feed/latest-per-channel')]);
+    state.latestPerChannel = latest;
     renderKids(kids);
     renderCategories();
-    renderVideos();
+    await loadMore();
   } catch (error) {
     showToast(`Unable to load feed: ${error.message}`, 'error');
   }
 }
+
+moreButton?.addEventListener('click', async () => {
+  moreButton.disabled = true;
+  await loadMore();
+});
 
 loadDashboard();

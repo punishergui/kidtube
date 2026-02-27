@@ -46,6 +46,7 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
         c1 = Channel(
             youtube_id="UC1234567890123456789012",
             title="Alpha",
+            category="education",
             resolve_status="ok",
             allowed=True,
             blocked=False,
@@ -53,6 +54,7 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
         c2 = Channel(
             youtube_id="UCabcdefghijklmno123456",
             title="Beta",
+            category="fun",
             resolve_status="ok",
             allowed=True,
             blocked=False,
@@ -62,6 +64,7 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
         session.commit()
         session.refresh(c1)
         session.refresh(c2)
+        c1_id = c1.id
 
         session.add(
             Video(
@@ -95,6 +98,8 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
     try:
         with _test_client_for_engine(engine) as client:
             response = client.get("/api/feed/latest-per-channel")
+            full_feed = client.get("/api/feed?limit=2&offset=0")
+            filtered = client.get(f"/api/feed?channel_id={c1_id}&category=education")
     finally:
         app.dependency_overrides.pop(get_session, None)
 
@@ -103,6 +108,12 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
     assert len(payload) == 2
     assert payload[0]["video_youtube_id"] == "vid00000002"
     assert payload[1]["video_youtube_id"] == "vid00000003"
+
+    assert full_feed.status_code == 200
+    assert [item["video_youtube_id"] for item in full_feed.json()] == ["vid00000002", "vid00000003"]
+
+    assert filtered.status_code == 200
+    assert [item["video_youtube_id"] for item in filtered.json()] == ["vid00000002", "vid00000001"]
 
 
 def test_feed_respects_allowed_and_blocked_flags(tmp_path: Path) -> None:
@@ -180,7 +191,7 @@ def test_feed_respects_allowed_and_blocked_flags(tmp_path: Path) -> None:
     assert [item["video_youtube_id"] for item in payload] == ["vid-allowed"]
 
 
-def test_blocking_channel_purges_cached_videos(tmp_path: Path) -> None:
+def test_blocking_channel_purges_cached_videos_and_delete_channel(tmp_path: Path) -> None:
     db_path = tmp_path / "feed-block-purge-test.db"
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
@@ -216,6 +227,7 @@ def test_blocking_channel_purges_cached_videos(tmp_path: Path) -> None:
                 f"/api/channels/{channel_id}",
                 json={"blocked": True, "blocked_reason": "Unsafe content"},
             )
+            delete_response = client.delete(f"/api/channels/{channel_id}")
             feed_response = client.get("/api/feed/latest-per-channel")
     finally:
         app.dependency_overrides.pop(get_session, None)
@@ -224,12 +236,18 @@ def test_blocking_channel_purges_cached_videos(tmp_path: Path) -> None:
     patched = response.json()
     assert patched["blocked"] is True
     assert patched["blocked_reason"] == "Unsafe content"
+    assert delete_response.status_code == 204
 
     with Session(engine) as session:
-        remaining = session.exec(
-            text("SELECT COUNT(*) FROM videos WHERE channel_id = :channel_id"),
-            params={"channel_id": channel_id},
+        channel_count = session.execute(
+            text("SELECT COUNT(*) FROM channels WHERE id = :id"),
+            {"id": channel_id},
         ).one()[0]
+        remaining = session.execute(
+            text("SELECT COUNT(*) FROM videos WHERE channel_id = :channel_id"),
+            {"channel_id": channel_id},
+        ).one()[0]
+    assert channel_count == 0
     assert remaining == 0
 
     assert feed_response.status_code == 200

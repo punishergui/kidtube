@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session
@@ -14,12 +14,62 @@ router = APIRouter()
 
 class FeedItem(BaseModel):
     channel_id: int
+    channel_youtube_id: str | None
     channel_title: str | None
     channel_avatar_url: str | None
+    channel_category: str | None
     video_youtube_id: str
     video_title: str
     video_thumbnail_url: str
     video_published_at: datetime
+
+
+@router.get("", response_model=list[FeedItem])
+def list_feed(
+    session: Session = Depends(get_session),
+    limit: int = Query(default=30, ge=1, le=100),
+    channel_id: int | None = Query(default=None),
+    category: str | None = Query(default=None),
+    kid_id: int | None = Query(default=None),
+    offset: int = Query(default=0, ge=0),
+    cursor: str | None = Query(default=None),
+) -> list[FeedItem]:
+    del kid_id
+    del cursor
+
+    query = text(
+        """
+        SELECT
+            c.id AS channel_id,
+            c.youtube_id AS channel_youtube_id,
+            c.title AS channel_title,
+            c.avatar_url AS channel_avatar_url,
+            c.category AS channel_category,
+            v.youtube_id AS video_youtube_id,
+            v.title AS video_title,
+            v.thumbnail_url AS video_thumbnail_url,
+            v.published_at AS video_published_at
+        FROM videos v
+        JOIN channels c ON c.id = v.channel_id
+        WHERE c.enabled = 1
+          AND c.allowed = 1
+          AND c.blocked = 0
+          AND (:channel_id IS NULL OR c.id = :channel_id)
+          AND (:category IS NULL OR c.category = :category)
+        ORDER BY v.published_at DESC
+        LIMIT :limit OFFSET :offset
+        """
+    )
+    rows = session.execute(
+        query,
+        {
+            "channel_id": channel_id,
+            "category": category,
+            "limit": limit,
+            "offset": offset,
+        },
+    ).mappings().all()
+    return [FeedItem.model_validate(row) for row in rows]
 
 
 @router.get("/latest-per-channel", response_model=list[FeedItem])
@@ -28,8 +78,10 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
         """
         SELECT
             c.id AS channel_id,
+            c.youtube_id AS channel_youtube_id,
             c.title AS channel_title,
             c.avatar_url AS channel_avatar_url,
+            c.category AS channel_category,
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
@@ -49,5 +101,5 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
         ORDER BY v.published_at DESC
         """
     )
-    rows = session.exec(query).mappings().all()
+    rows = session.execute(query).mappings().all()
     return [FeedItem.model_validate(row) for row in rows]

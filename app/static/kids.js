@@ -17,9 +17,40 @@ function row(kid) {
           <input data-limit="${kid.id}" type="number" min="1" value="${kid.daily_limit_minutes || ''}" />
         </label>
       </div>
+      <div class="avatar-upload-row">
+        <input data-avatar-file="${kid.id}" type="file" accept="image/png,image/jpeg,image/webp" />
+        <button class="btn-soft" data-upload-avatar="${kid.id}">Upload avatar</button>
+        <button class="btn-secondary" data-remove-avatar="${kid.id}">Remove avatar</button>
+      </div>
       <button class="btn-primary" data-save="${kid.id}">Save</button>
     </article>
   `;
+}
+
+async function uploadAvatar(kidId) {
+  const fileInput = body.querySelector(`input[data-avatar-file="${kidId}"]`);
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    showToast('Choose an image file first.', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`/api/kids/${kidId}/avatar`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || 'Upload failed');
+  }
+}
+
+async function removeAvatar(kidId) {
+  await requestJson(`/api/kids/${kidId}/avatar`, { method: 'DELETE' });
 }
 
 async function loadKids() {
@@ -48,6 +79,32 @@ async function loadKids() {
       }
     });
   });
+
+  body.querySelectorAll('button[data-upload-avatar]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const id = Number(button.dataset.uploadAvatar);
+      try {
+        await uploadAvatar(id);
+        showToast('Avatar uploaded.');
+        await loadKids();
+      } catch (error) {
+        showToast(`Avatar upload failed: ${error.message}`, 'error');
+      }
+    });
+  });
+
+  body.querySelectorAll('button[data-remove-avatar]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const id = Number(button.dataset.removeAvatar);
+      try {
+        await removeAvatar(id);
+        showToast('Avatar removed.');
+        await loadKids();
+      } catch (error) {
+        showToast(`Avatar removal failed: ${error.message}`, 'error');
+      }
+    });
+  });
 }
 
 form.addEventListener('submit', async (event) => {
@@ -56,7 +113,6 @@ form.addEventListener('submit', async (event) => {
   const limitRaw = String(data.get('daily_limit_minutes') || '').trim();
   const payload = {
     name: String(data.get('name') || '').trim(),
-    avatar_url: String(data.get('avatar_url') || '').trim() || null,
     daily_limit_minutes: limitRaw ? Number(limitRaw) : null,
   };
 

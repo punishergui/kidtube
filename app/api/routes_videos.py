@@ -40,7 +40,7 @@ def get_video(youtube_id: str, session: Session = Depends(get_session)) -> Video
         LIMIT 1
         """
     )
-    row = session.exec(query, params={"youtube_id": youtube_id}).mappings().first()
+    row = session.execute(query, {"youtube_id": youtube_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Video not found")
     return VideoRead.model_validate(row)
