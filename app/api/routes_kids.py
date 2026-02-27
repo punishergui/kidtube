@@ -10,7 +10,7 @@ from app.db.session import get_session
 
 router = APIRouter()
 
-UPLOAD_ROOT = Path(__file__).resolve().parents[1] / "static" / "uploads" / "kids"
+APP_DIR = Path(__file__).resolve().parents[1]
 ALLOWED_AVATAR_TYPES = {
     "image/png",
     "image/jpeg",
@@ -39,7 +39,8 @@ class KidRead(BaseModel):
 
 
 def _avatar_path(kid_id: int) -> Path:
-    return UPLOAD_ROOT / str(kid_id) / "avatar.png"
+    upload_dir = APP_DIR / "static" / "uploads" / "kids" / str(kid_id)
+    return upload_dir / "avatar.png"
 
 
 def _delete_avatar_file(kid_id: int) -> None:
@@ -76,7 +77,7 @@ def patch_kid(kid_id: int, payload: KidUpdate, session: Session = Depends(get_se
 
 
 @router.post("/{kid_id}/avatar", response_model=KidRead)
-def upload_kid_avatar(
+async def upload_kid_avatar(
     kid_id: int,
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
@@ -91,7 +92,8 @@ def upload_kid_avatar(
     avatar_path = _avatar_path(kid_id)
     avatar_path.parent.mkdir(parents=True, exist_ok=True)
     _delete_avatar_file(kid_id)
-    avatar_path.write_bytes(file.file.read())
+    data = await file.read()
+    avatar_path.write_bytes(data)
 
     timestamp = int(datetime.utcnow().timestamp())
     kid.avatar_url = f"/static/uploads/kids/{kid_id}/avatar.png?v={timestamp}"

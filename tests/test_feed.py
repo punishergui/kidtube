@@ -64,6 +64,7 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
         session.commit()
         session.refresh(c1)
         session.refresh(c2)
+        c1_id = c1.id
 
         session.add(
             Video(
@@ -98,7 +99,7 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
         with _test_client_for_engine(engine) as client:
             response = client.get("/api/feed/latest-per-channel")
             full_feed = client.get("/api/feed?limit=2&offset=0")
-            filtered = client.get(f"/api/feed?channel_id={c1.id}&category=education")
+            filtered = client.get(f"/api/feed?channel_id={c1_id}&category=education")
     finally:
         app.dependency_overrides.pop(get_session, None)
 
