@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -24,6 +25,9 @@ class ChannelCreate(BaseModel):
 class ChannelUpdate(BaseModel):
     enabled: bool | None = None
     category: str | None = None
+    allowed: bool | None = None
+    blocked: bool | None = None
+    blocked_reason: str | None = None
 
 
 class ChannelRead(BaseModel):
@@ -34,6 +38,9 @@ class ChannelRead(BaseModel):
     avatar_url: str | None
     banner_url: str | None
     category: str | None
+    allowed: bool
+    blocked: bool
+    blocked_reason: str | None
     enabled: bool
     last_sync: datetime | None
     resolved_at: datetime | None
@@ -83,7 +90,7 @@ async def create_channel(
 
     session.refresh(channel)
 
-    if channel.resolve_status == "ok":
+    if channel.resolve_status == "ok" and channel.allowed and not channel.blocked:
         try:
             videos = await fetch_latest_videos(channel.youtube_id)
             store_videos(session, channel.id, videos)
@@ -111,8 +118,17 @@ def patch_channel(
         raise HTTPException(status_code=404, detail="Channel not found")
 
     data = payload.model_dump(exclude_unset=True)
+    blocked_before = channel.blocked
+
     for field, value in data.items():
         setattr(channel, field, value)
+
+    if channel.blocked and not blocked_before:
+        channel.blocked_at = datetime.utcnow()
+        session.exec(
+            text("DELETE FROM videos WHERE channel_id = :channel_id"),
+            {"channel_id": channel.id},
+        )
 
     session.add(channel)
     session.commit()

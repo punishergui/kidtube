@@ -11,10 +11,27 @@ from app.db.session import engine
 from app.services.youtube import fetch_channel_metadata, fetch_latest_videos
 
 
+def select_sync_channel_ids(session: Session) -> list[int]:
+    return session.exec(
+        select(Channel.id).where(
+            Channel.enabled.is_(True),
+            Channel.allowed.is_(True),
+            Channel.blocked.is_(False),
+            Channel.resolve_status == "ok",
+        )
+    ).all()
+
+
 async def refresh_channel(channel_id: int) -> None:
     with Session(engine) as session:
         channel = session.get(Channel, channel_id)
-        if not channel or channel.resolve_status != "ok":
+        if (
+            not channel
+            or channel.resolve_status != "ok"
+            or not channel.enabled
+            or not channel.allowed
+            or channel.blocked
+        ):
             return
 
         try:
@@ -44,9 +61,7 @@ async def refresh_channel(channel_id: int) -> None:
 
 async def refresh_enabled_channels() -> None:
     with Session(engine) as session:
-        channels = session.exec(
-            select(Channel.id).where(Channel.enabled.is_(True), Channel.resolve_status == "ok")
-        ).all()
+        channels = select_sync_channel_ids(session)
 
     for channel_id in channels:
         await refresh_channel(channel_id)

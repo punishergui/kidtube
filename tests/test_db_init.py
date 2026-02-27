@@ -32,5 +32,21 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
         }
 
     assert expected_tables.issubset(found_tables)
-    assert {"input", "resolved_at", "resolve_status", "resolve_error"}.issubset(channel_columns)
+    assert {
+        "input",
+        "resolved_at",
+        "resolve_status",
+        "resolve_error",
+        "allowed",
+        "blocked",
+        "blocked_at",
+        "blocked_reason",
+    }.issubset(channel_columns)
     assert "idx_videos_channel_published_at" in indexes
+
+    with Session(engine) as session:
+        channel_indexes = {
+            row[1] for row in session.exec(text("PRAGMA index_list('channels')"))
+        }
+
+    assert "idx_channels_allowed_blocked_enabled" in channel_indexes
