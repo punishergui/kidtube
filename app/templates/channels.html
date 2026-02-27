@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}KidTube · Channels{% endblock %}
+{% block title %}KidTube · Admin Channels{% endblock %}
 {% block content %}
 <section class="page-head">
-  <h1>Channels</h1>
+  <h1>Admin · Channels</h1>
 </section>
-<form id="add-channel-form" class="panel form-panel">
-  <input name="input" placeholder="@channel, channel ID, or URL" required />
+<form id="channel-lookup-form" class="panel form-panel">
+  <input name="query" placeholder="@channel, channel ID, or URL" required />
   <select name="category">
     <option value="">Category (optional)</option>
     <option value="education">education</option>
@@ -14,8 +14,9 @@
     <option value="cartoons">cartoons</option>
     <option value="other">other</option>
   </select>
-  <button type="submit" class="btn-primary">Add Channel</button>
+  <button type="submit" class="btn-primary">Search</button>
 </form>
+<section id="channel-preview" class="panel channel-preview" hidden></section>
 <section id="channels-body" class="admin-list"></section>
 {% endblock %}
 {% block scripts %}

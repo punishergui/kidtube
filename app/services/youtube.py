@@ -243,14 +243,18 @@ async def fetch_channel_metadata(
         return {
             "channel_id": channel_id,
             "title": None,
+            "handle": None,
             "avatar_url": None,
             "banner_url": None,
+            "description": None,
+            "subscriber_count": None,
+            "video_count": None,
         }
 
     payload = await _youtube_get(
         "/channels",
         {
-            "part": "snippet,brandingSettings",
+            "part": "snippet,brandingSettings,statistics",
             "id": channel_id,
             "key": effective_key,
         },
@@ -266,11 +270,30 @@ async def fetch_channel_metadata(
     avatar = thumbnails.get("high") or thumbnails.get("medium") or thumbnails.get("default") or {}
     branding = item.get("brandingSettings", {}).get("image", {})
 
+    stats = item.get("statistics", {})
+    custom_url = snippet.get("customUrl")
+    handle = f"@{custom_url.lstrip('@')}" if custom_url else None
+
+    subscriber_count = stats.get("subscriberCount")
+    video_count = stats.get("videoCount")
+
+    subscriber_count_int: int | None = None
+    if subscriber_count is not None and str(subscriber_count).isdigit():
+        subscriber_count_int = int(subscriber_count)
+
+    video_count_int: int | None = None
+    if video_count is not None and str(video_count).isdigit():
+        video_count_int = int(video_count)
+
     return {
         "channel_id": item.get("id", channel_id),
         "title": snippet.get("title"),
+        "handle": handle,
         "avatar_url": avatar.get("url"),
         "banner_url": branding.get("bannerExternalUrl"),
+        "description": snippet.get("description"),
+        "subscriber_count": subscriber_count_int,
+        "video_count": video_count_int,
     }
 
 

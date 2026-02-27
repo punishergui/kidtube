@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Admin{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>Admin Control Panel</h1>
+    <p class="small">Manage channels, kid profiles, and sync operations.</p>
+  </div>
+  <a class="btn-secondary" href="/">Back to Kid Dashboard</a>
+</section>
+<section class="admin-grid">
+  <a class="panel admin-tile" href="/admin/channels">
+    <h2>Channels</h2>
+    <p class="small">Search and preview channels before allowing or blocking.</p>
+  </a>
+  <a class="panel admin-tile" href="/admin/kids">
+    <h2>Kids</h2>
+    <p class="small">Create and tune profiles and daily watch limits.</p>
+  </a>
+  <a class="panel admin-tile" href="/admin/sync">
+    <h2>Sync</h2>
+    <p class="small">Run sync and review exactly what changed.</p>
+  </a>
+</section>
+{% endblock %}

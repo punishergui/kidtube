@@ -9,12 +9,13 @@ runButton.addEventListener('click', async () => {
 
   try {
     const response = await requestJson('/api/sync/run', { method: 'POST', body: '{}' });
+    const updatedAt = new Date().toLocaleString();
     const failures = response.failures?.length
-      ? `<div class="failure-list">${response.failures
+      ? `<table><thead><tr><th>Channel ID</th><th>Input</th><th>Error</th></tr></thead><tbody>${response.failures
           .map(
-            (failure) => `<article class="failure-card"><strong>#${failure.id}</strong><p>${failure.input || '—'}</p><p>${failure.error}</p></article>`,
+            (failure) => `<tr><td>#${failure.id ?? '—'}</td><td>${failure.input || '—'}</td><td>${failure.error}</td></tr>`,
           )
-          .join('')}</div>`
+          .join('')}</tbody></table>`
       : '<p>No failures 🎉</p>';
 
     result.innerHTML = `
@@ -24,11 +25,13 @@ runButton.addEventListener('click', async () => {
         <p><strong>synced:</strong> ${response.synced}</p>
         <p><strong>failed:</strong> ${response.failed}</p>
       </div>
+      <p class="small">Updated at ${updatedAt}</p>
       <h3>Failures</h3>
       ${failures}
-      <p><a href="/" class="btn-secondary">Back to Dashboard</a></p>
+      <p class="sync-actions"><a href="/" class="btn-secondary">Back to Kid Dashboard</a></p>
     `;
 
+    localStorage.setItem('kidtube-refresh-feed-once', '1');
     showToast('Sync completed successfully.');
   } catch (error) {
     showToast(`Sync failed: ${error.message}`, 'error');
