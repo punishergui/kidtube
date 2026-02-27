@@ -16,6 +16,7 @@ services:
       KIDTUBE_PORT: 2018
       KIDTUBE_BASE_URL: https://kidtube.white-house.cc
       KIDTUBE_DB_PATH: /data/kidtube.db
+      YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
 
       # Admin
       KIDTUBE_ADMIN_PIN: 1234
