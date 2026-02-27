@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -134,3 +134,18 @@ def patch_channel(
     session.commit()
     session.refresh(channel)
     return channel
+
+
+@router.delete("/{channel_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+def delete_channel(channel_id: int, session: Session = Depends(get_session)) -> Response:
+    channel = session.get(Channel, channel_id)
+    if not channel:
+        raise HTTPException(status_code=404, detail="Channel not found")
+
+    session.execute(
+        text("DELETE FROM videos WHERE channel_id = :channel_id"),
+        {"channel_id": channel_id},
+    )
+    session.delete(channel)
+    session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

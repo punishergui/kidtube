@@ -17,6 +17,12 @@
   <button type="submit" class="btn-primary">Search</button>
 </form>
 <section id="channel-preview" class="panel channel-preview" hidden></section>
+<section id="channel-filters" class="category-pills">
+  <button class="pill active" data-filter="all" type="button">All</button>
+  <button class="pill" data-filter="whitelisted" type="button">Whitelisted</button>
+  <button class="pill" data-filter="blacklisted" type="button">Blacklisted</button>
+  <button class="pill" data-filter="disabled" type="button">Disabled</button>
+</section>
 <section id="channels-body" class="admin-list"></section>
 {% endblock %}
 {% block scripts %}

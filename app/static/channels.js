@@ -3,8 +3,11 @@ import { formatDate, requestJson, showToast } from '/static/app.js';
 const body = document.getElementById('channels-body');
 const form = document.getElementById('channel-lookup-form');
 const preview = document.getElementById('channel-preview');
+const filters = document.getElementById('channel-filters');
 
 let latestLookup = null;
+let allChannels = [];
+let activeFilter = 'all';
 
 function escapeHtml(value) {
   return String(value || '')
@@ -13,6 +16,13 @@ function escapeHtml(value) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function matchesFilter(channel) {
+  if (activeFilter === 'whitelisted') return channel.allowed && !channel.blocked;
+  if (activeFilter === 'blacklisted') return channel.blocked;
+  if (activeFilter === 'disabled') return !channel.enabled;
+  return true;
 }
 
 function row(channel) {
@@ -46,10 +56,74 @@ function row(channel) {
       <div class="reason-row">
         <input data-reason="${channel.id}" value="${channel.blocked_reason || ''}" placeholder="Blocked reason" />
         <button class="btn-soft" data-save-reason="${channel.id}">Save reason</button>
+        <button class="btn-secondary" data-delete="${channel.id}">Delete</button>
       </div>
       <p class="small">Last sync: ${formatDate(channel.last_sync)}</p>
     </article>
   `;
+}
+
+function renderChannels() {
+  const channels = allChannels.filter(matchesFilter);
+  if (!channels.length) {
+    body.innerHTML = '<article class="panel empty-state">No channels for this filter.</article>';
+    return;
+  }
+
+  body.innerHTML = channels.map(row).join('');
+
+  body.querySelectorAll('input[data-action]').forEach((input) => {
+    input.addEventListener('change', async () => {
+      const id = Number(input.dataset.id);
+      const action = input.dataset.action;
+      const channel = allChannels.find((item) => item.id === id);
+      let payload;
+      if (action === 'allowed') payload = { allowed: !channel.allowed };
+      if (action === 'enabled') payload = { enabled: !channel.enabled };
+      if (action === 'blocked') {
+        const reason = body.querySelector(`input[data-reason="${id}"]`)?.value?.trim();
+        payload = { blocked: !channel.blocked, blocked_reason: reason || null };
+      }
+
+      try {
+        await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+        showToast('Channel updated.');
+        await loadChannels();
+      } catch (error) {
+        showToast(`Update failed: ${error.message}`, 'error');
+      }
+    });
+  });
+
+  body.querySelectorAll('button[data-save-reason]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const id = Number(button.dataset.saveReason);
+      const reason = body.querySelector(`input[data-reason="${id}"]`)?.value?.trim() || null;
+      try {
+        await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify({ blocked_reason: reason }) });
+        showToast('Channel updated.');
+        await loadChannels();
+      } catch (error) {
+        showToast(`Reason save failed: ${error.message}`, 'error');
+      }
+    });
+  });
+
+  body.querySelectorAll('button[data-delete]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const id = Number(button.dataset.delete);
+      const channel = allChannels.find((item) => item.id === id);
+      const ok = window.confirm(`Delete channel “${channel?.title || channel?.youtube_id}” and all cached videos?`);
+      if (!ok) return;
+      try {
+        await requestJson(`/api/channels/${id}`, { method: 'DELETE' });
+        showToast('Channel deleted.');
+        await loadChannels();
+      } catch (error) {
+        showToast(`Delete failed: ${error.message}`, 'error');
+      }
+    });
+  });
 }
 
 function renderLookupPreview(payload) {
@@ -130,55 +204,19 @@ async function submitFromPreview(blocked) {
   }
 }
 
-async function patchChannel(id, payload) {
-  await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
-  showToast('Channel updated.');
-  await loadChannels();
-}
-
 async function loadChannels() {
-  const channels = await requestJson('/api/channels');
-
-  if (!channels.length) {
-    body.innerHTML = '<article class="panel empty-state">No channels yet. Use search + preview to add one.</article>';
-    return;
-  }
-
-  body.innerHTML = channels.map(row).join('');
-
-  body.querySelectorAll('input[data-action]').forEach((input) => {
-    input.addEventListener('change', async () => {
-      const id = Number(input.dataset.id);
-      const action = input.dataset.action;
-      const channel = channels.find((item) => item.id === id);
-      let payload;
-      if (action === 'allowed') payload = { allowed: !channel.allowed };
-      if (action === 'enabled') payload = { enabled: !channel.enabled };
-      if (action === 'blocked') {
-        const reason = body.querySelector(`input[data-reason="${id}"]`)?.value?.trim();
-        payload = { blocked: !channel.blocked, blocked_reason: reason || null };
-      }
-
-      try {
-        await patchChannel(id, payload);
-      } catch (error) {
-        showToast(`Update failed: ${error.message}`, 'error');
-      }
-    });
-  });
-
-  body.querySelectorAll('button[data-save-reason]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const id = Number(button.dataset.saveReason);
-      const reason = body.querySelector(`input[data-reason="${id}"]`)?.value?.trim() || null;
-      try {
-        await patchChannel(id, { blocked_reason: reason });
-      } catch (error) {
-        showToast(`Reason save failed: ${error.message}`, 'error');
-      }
-    });
-  });
+  allChannels = await requestJson('/api/channels');
+  renderChannels();
 }
+
+filters?.querySelectorAll('button[data-filter]').forEach((button) => {
+  button.addEventListener('click', () => {
+    activeFilter = button.dataset.filter;
+    filters.querySelectorAll('button[data-filter]').forEach((item) => item.classList.remove('active'));
+    button.classList.add('active');
+    renderChannels();
+  });
+});
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();

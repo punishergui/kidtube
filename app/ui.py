@@ -21,7 +21,7 @@ def render_page(request: Request, template_name: str, **context: str) -> HTMLRes
         "default-src 'self'; "
         "img-src 'self' data: https://i.ytimg.com https:; "
         "style-src 'self' 'unsafe-inline'; "
-        "script-src 'self' https://www.youtube.com https://s.ytimg.com; "
+        "script-src 'self' https://www.youtube.com; "
         "frame-src https://www.youtube-nocookie.com https://www.youtube.com; "
         "connect-src 'self'"
     )

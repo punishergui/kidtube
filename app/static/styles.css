@@ -701,3 +701,21 @@ td:last-child { border-radius: 0 12px 12px 0; }
 .sync-actions {
   margin-top: 1rem;
 }
+
+
+.more-wrap {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+#channel-filters {
+  margin-bottom: 1rem;
+}
+
+.avatar-upload-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}

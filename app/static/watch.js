@@ -3,10 +3,8 @@ import { formatDate, requestJson, showToast } from '/static/app.js';
 const container = document.getElementById('watch-container');
 const youtubeId = container?.dataset.youtubeId;
 const embedOrigin = container?.dataset.embedOrigin;
-const readyTimeoutMs = 7000;
 
-let fallbackTimer = null;
-let playerReady = false;
+let ytApiPromise;
 
 function escapeHtml(value) {
   return String(value)
@@ -19,42 +17,22 @@ function escapeHtml(value) {
 
 function getChannelFilterHref(channelId) {
   if (!channelId) return '/';
-  return `/?channel=${encodeURIComponent(channelId)}`;
+  return `/?channel_id=${encodeURIComponent(channelId)}`;
 }
 
 function showPlaybackFallback(channelId) {
   const fallback = document.getElementById('watch-fallback');
-  if (!fallback) return;
+  const playerWrap = document.querySelector('.player-wrap');
+  const loading = document.getElementById('watch-loading');
+  if (loading) loading.hidden = true;
+  if (playerWrap) playerWrap.hidden = true;
 
+  if (!fallback) return;
   fallback.hidden = false;
   const filteredLink = fallback.querySelector('[data-channel-link]');
   if (filteredLink) {
     filteredLink.href = getChannelFilterHref(channelId);
   }
-}
-
-function markReady() {
-  playerReady = true;
-  const loading = document.getElementById('watch-loading');
-  const fallback = document.getElementById('watch-fallback');
-  if (loading) loading.hidden = true;
-  if (fallback) fallback.hidden = true;
-  if (fallbackTimer) {
-    window.clearTimeout(fallbackTimer);
-    fallbackTimer = null;
-  }
-}
-
-function startFallbackTimer(channelId) {
-  const loading = document.getElementById('watch-loading');
-  if (loading) loading.hidden = false;
-
-  fallbackTimer = window.setTimeout(() => {
-    if (!playerReady) {
-      if (loading) loading.hidden = true;
-      showPlaybackFallback(channelId);
-    }
-  }, readyTimeoutMs);
 }
 
 function renderNotFound() {
@@ -68,16 +46,38 @@ function renderNotFound() {
 
 function embedUrl(videoId) {
   const params = new URLSearchParams({
-    autoplay: '0',
     rel: '0',
     modestbranding: '1',
-    iv_load_policy: '3',
     playsinline: '1',
     enablejsapi: '1',
     origin: embedOrigin || window.location.origin,
   });
 
   return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
+}
+
+function loadYoutubeIframeApi() {
+  if (window.YT?.Player) {
+    return Promise.resolve(window.YT);
+  }
+  if (ytApiPromise) {
+    return ytApiPromise;
+  }
+
+  ytApiPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://www.youtube.com/iframe_api';
+    script.async = true;
+    script.onerror = () => reject(new Error('Unable to load YouTube player API'));
+    const previousReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previousReady === 'function') previousReady();
+      resolve(window.YT);
+    };
+    document.head.append(script);
+  });
+
+  return ytApiPromise;
 }
 
 async function loadVideo() {
@@ -88,18 +88,10 @@ async function loadVideo() {
 
   try {
     const video = await requestJson(`/api/videos/${youtubeId}`);
-    const channelId = video.channel_youtube_id || '';
+    const channelId = video.channel_id || '';
     container.innerHTML = `
       <section class="player-wrap panel">
-        <iframe
-          id="watch-player"
-          src="${embedUrl(video.youtube_id)}"
-          title="${escapeHtml(video.title)}"
-          allow="autoplay; encrypted-media; picture-in-picture"
-          sandbox="allow-scripts allow-same-origin allow-presentation"
-          referrerpolicy="no-referrer"
-          allowfullscreen
-        ></iframe>
+        <div id="watch-player"></div>
       </section>
       <article id="watch-loading" class="panel watch-details">
         <h2>Loading video…</h2>
@@ -110,7 +102,7 @@ async function loadVideo() {
         <p class="small">Ask a parent to approve a different video.</p>
         <div class="watch-actions">
           <a class="btn-secondary" href="/">Back to Dashboard</a>
-          <a class="btn-soft" data-channel-link href="${getChannelFilterHref(channelId)}">Try another video from this channel</a>
+          <a class="btn-soft" data-channel-link href="${getChannelFilterHref(channelId)}">More from this channel</a>
         </div>
       </article>
       <article class="panel watch-details">
@@ -123,28 +115,25 @@ async function loadVideo() {
       </article>
     `;
 
-    const onPlayerMessage = (event) => {
-      if (event.origin !== 'https://www.youtube-nocookie.com' && event.origin !== 'https://www.youtube.com') {
-        return;
-      }
-      if (typeof event.data !== 'string') return;
-      if (event.data.includes('onReady')) {
-        markReady();
-      }
-    };
-
-    window.addEventListener('message', onPlayerMessage, { once: false });
-
-    const iframe = document.getElementById('watch-player');
-    iframe?.addEventListener('load', () => {
-      try {
-        iframe.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: youtubeId }), '*');
-      } catch {
-        // no-op
-      }
+    const yt = await loadYoutubeIframeApi();
+    new yt.Player('watch-player', {
+      videoId: video.youtube_id,
+      playerVars: {
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1,
+        enablejsapi: 1,
+        origin: embedOrigin || window.location.origin,
+      },
+      host: 'https://www.youtube-nocookie.com',
+      events: {
+        onReady: () => {
+          const loading = document.getElementById('watch-loading');
+          if (loading) loading.hidden = true;
+        },
+        onError: () => showPlaybackFallback(channelId),
+      },
     });
-
-    startFallbackTimer(channelId);
   } catch (error) {
     renderNotFound();
     if (!String(error.message).includes('404')) {
