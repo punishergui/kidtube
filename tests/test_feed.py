@@ -238,13 +238,13 @@ def test_blocking_channel_purges_cached_videos_and_delete_channel(tmp_path: Path
     assert delete_response.status_code == 204
 
     with Session(engine) as session:
-        channel_count = session.exec(
+        channel_count = session.execute(
             text("SELECT COUNT(*) FROM channels WHERE id = :id"),
             {"id": channel_id},
         ).one()[0]
-        remaining = session.exec(
+        remaining = session.execute(
             text("SELECT COUNT(*) FROM videos WHERE channel_id = :channel_id"),
-            params={"channel_id": channel_id},
+            {"channel_id": channel_id},
         ).one()[0]
     assert channel_count == 0
     assert remaining == 0

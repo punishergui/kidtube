@@ -60,7 +60,7 @@ def list_feed(
         LIMIT :limit OFFSET :offset
         """
     )
-    rows = session.exec(
+    rows = session.execute(
         query,
         {
             "channel_id": channel_id,
@@ -101,5 +101,5 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
         ORDER BY v.published_at DESC
         """
     )
-    rows = session.exec(query).mappings().all()
+    rows = session.execute(query).mappings().all()
     return [FeedItem.model_validate(row) for row in rows]
