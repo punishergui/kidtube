@@ -1,0 +1,16 @@
+services:
+  kidtube:
+    image: ghcr.io/${GITHUB_REPOSITORY:-example/kidtube}:main
+    container_name: kidtube
+    ports:
+      - "${KIDTUBE_PORT:-2018}:2018"
+    environment:
+      APP_NAME: ${APP_NAME:-KidTube}
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      PORT: 2018
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/kidtube.db}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

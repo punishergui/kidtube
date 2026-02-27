@@ -1,14 +1,37 @@
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
 
-app = FastAPI(title="KidTube")
+from app.api.routes_channels import router as channels_router
+from app.api.routes_discord import router as discord_router
+from app.api.routes_health import router as health_router
+from app.api.routes_kids import router as kids_router
+from app.core.config import settings
+from app.core.logging import setup_logging
+from app.core.version import get_version_payload
+from app.db.migrate import run_migrations
+from app.db.session import engine
 
 
-@app.get("/health")
-def health() -> dict[str, bool]:
-    return {"ok": True}
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    setup_logging(settings.log_level)
+    sqlite_path = settings.sqlite_path
+    if sqlite_path:
+        Path(sqlite_path).parent.mkdir(parents=True, exist_ok=True)
+
+    run_migrations(engine, Path(__file__).parent / "db" / "migrations")
+    yield
 
 
-@app.get("/", response_class=HTMLResponse)
-def root() -> str:
-    return "<html><body><h1>KidTube running</h1></body></html>"
+app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+app.include_router(health_router)
+app.include_router(kids_router)
+app.include_router(channels_router)
+app.include_router(discord_router)
+
+
+@app.get("/version")
+def version() -> dict[str, str | None]:
+    return get_version_payload()
