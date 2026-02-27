@@ -61,7 +61,8 @@ def test_select_sync_channel_ids_excludes_blocked_and_not_allowed(tmp_path: Path
         )
         session.commit()
         session.refresh(allowed_channel)
+        allowed_channel_id = allowed_channel.id
 
         selected = select_sync_channel_ids(session)
 
-    assert selected == [allowed_channel.id]
+    assert selected == [allowed_channel_id]

@@ -197,11 +197,12 @@ def test_blocking_channel_purges_cached_videos(tmp_path: Path) -> None:
         session.add(channel)
         session.commit()
         session.refresh(channel)
+        channel_id = channel.id
 
         session.add(
             Video(
                 youtube_id="vid-purge",
-                channel_id=channel.id,
+                channel_id=channel_id,
                 title="Purge Me",
                 thumbnail_url="https://img.example/purge.jpg",
                 published_at=now,
@@ -212,7 +213,7 @@ def test_blocking_channel_purges_cached_videos(tmp_path: Path) -> None:
     try:
         with _test_client_for_engine(engine) as client:
             response = client.patch(
-                f"/api/channels/{channel.id}",
+                f"/api/channels/{channel_id}",
                 json={"blocked": True, "blocked_reason": "Unsafe content"},
             )
             feed_response = client.get("/api/feed/latest-per-channel")
@@ -227,7 +228,7 @@ def test_blocking_channel_purges_cached_videos(tmp_path: Path) -> None:
     with Session(engine) as session:
         remaining = session.exec(
             text("SELECT COUNT(*) FROM videos WHERE channel_id = :channel_id"),
-            {"channel_id": channel.id},
+            {"channel_id": channel_id},
         ).one()
     assert remaining == 0
 
