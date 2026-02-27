@@ -1,7 +1,19 @@
 import { formatDate, requestJson, showToast } from '/static/app.js';
 
 const body = document.getElementById('channels-body');
-const form = document.getElementById('add-channel-form');
+const form = document.getElementById('channel-lookup-form');
+const preview = document.getElementById('channel-preview');
+
+let latestLookup = null;
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 
 function row(channel) {
   return `
@@ -40,6 +52,84 @@ function row(channel) {
   `;
 }
 
+function renderLookupPreview(payload) {
+  if (!payload?.found || !payload.channel) {
+    preview.hidden = false;
+    preview.innerHTML = `
+      <h2>Nothing found</h2>
+      <p class="small">${escapeHtml(payload?.error || 'Try a different handle, channel ID, or channel URL.')}</p>
+    `;
+    latestLookup = null;
+    return;
+  }
+
+  const channel = payload.channel;
+  const videos = (payload.sample_videos || [])
+    .map(
+      (video) => `
+      <a class="sample-video" href="/watch/${video.youtube_id}" target="_blank" rel="noopener noreferrer">
+        <img src="${video.thumbnail_url}" alt="${escapeHtml(video.title)}" />
+        <span>${escapeHtml(video.title)}</span>
+      </a>`,
+    )
+    .join('');
+
+  preview.hidden = false;
+  preview.innerHTML = `
+    <div class="channel-preview-head">
+      ${channel.avatar_url ? `<img class="avatar preview-avatar" src="${channel.avatar_url}" alt="" />` : ''}
+      <div>
+        <h2>${escapeHtml(channel.title || 'Untitled channel')}</h2>
+        <p class="small">${escapeHtml(channel.handle || '')} · ${escapeHtml(channel.youtube_id)}</p>
+      </div>
+    </div>
+    <p class="small clamp-text">${escapeHtml(channel.description || 'No description available.')}</p>
+    <p class="small">Subscribers: ${channel.subscriber_count ?? '—'} · Videos: ${channel.video_count ?? '—'}</p>
+    <h3>Recent samples</h3>
+    <div class="sample-grid">${videos || '<p class="small">No sample videos returned.</p>'}</div>
+    <div class="preview-actions">
+      <button class="btn-primary" id="add-channel-btn">Add Channel</button>
+      <button class="btn-soft" id="block-channel-btn">Block Channel</button>
+    </div>
+  `;
+
+  latestLookup = payload;
+
+  document.getElementById('add-channel-btn')?.addEventListener('click', () => submitFromPreview(false));
+  document.getElementById('block-channel-btn')?.addEventListener('click', () => submitFromPreview(true));
+}
+
+async function submitFromPreview(blocked) {
+  if (!latestLookup?.query) {
+    showToast('Search and preview a channel before adding it.', 'error');
+    return;
+  }
+
+  const data = new FormData(form);
+  const category = String(data.get('category') || '').trim() || null;
+
+  try {
+    const created = await requestJson('/api/channels', {
+      method: 'POST',
+      body: JSON.stringify({ input: latestLookup.query, category }),
+    });
+
+    if (blocked) {
+      await requestJson(`/api/channels/${created.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ blocked: true, allowed: false, blocked_reason: 'Blocked by admin review' }),
+      });
+      showToast('Channel blocked.');
+    } else {
+      showToast('Channel added.');
+    }
+
+    await loadChannels();
+  } catch (error) {
+    showToast(`Unable to save channel: ${error.message}`, 'error');
+  }
+}
+
 async function patchChannel(id, payload) {
   await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
   showToast('Channel updated.');
@@ -50,7 +140,7 @@ async function loadChannels() {
   const channels = await requestJson('/api/channels');
 
   if (!channels.length) {
-    body.innerHTML = '<article class="panel empty-state">No channels yet. Add one above to get started.</article>';
+    body.innerHTML = '<article class="panel empty-state">No channels yet. Use search + preview to add one.</article>';
     return;
   }
 
@@ -92,19 +182,14 @@ async function loadChannels() {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
-  const data = new FormData(form);
-  const payload = {
-    input: String(data.get('input') || '').trim(),
-    category: String(data.get('category') || '').trim() || null,
-  };
+  const query = String(new FormData(form).get('query') || '').trim();
+  if (!query) return;
 
   try {
-    await requestJson('/api/channels', { method: 'POST', body: JSON.stringify(payload) });
-    form.reset();
-    showToast('Channel added.');
-    await loadChannels();
+    const response = await requestJson(`/api/channel-lookup?query=${encodeURIComponent(query)}`);
+    renderLookupPreview(response);
   } catch (error) {
-    showToast(`Unable to add channel: ${error.message}`, 'error');
+    showToast(`Lookup failed: ${error.message}`, 'error');
   }
 });
 

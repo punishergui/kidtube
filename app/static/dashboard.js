@@ -5,10 +5,13 @@ const kidSelector = document.getElementById('kid-selector');
 const categoryPills = document.getElementById('category-pills');
 
 const categories = ['all', 'education', 'fun'];
+const queryParams = new URLSearchParams(window.location.search);
+
 const state = {
   items: [],
   category: localStorage.getItem('kidtube-category') || 'all',
   kidId: Number(localStorage.getItem('kidtube-active-kid')) || null,
+  channelFilter: queryParams.get('channel') || null,
 };
 
 function formatDuration(seconds) {
@@ -25,8 +28,9 @@ function normalizeCategory(item) {
 }
 
 function categoryMatches(item) {
-  if (state.category === 'all') return true;
-  return normalizeCategory(item) === state.category;
+  if (state.category !== 'all' && normalizeCategory(item) !== state.category) return false;
+  if (state.channelFilter && item.channel_youtube_id !== state.channelFilter) return false;
+  return true;
 }
 
 function renderCategories() {
@@ -121,6 +125,10 @@ async function loadDashboard() {
   try {
     const [items, kids] = await Promise.all([requestJson('/api/feed/latest-per-channel'), requestJson('/api/kids')]);
     state.items = items;
+    if (localStorage.getItem('kidtube-refresh-feed-once') === '1') {
+      localStorage.removeItem('kidtube-refresh-feed-once');
+      state.items = await requestJson('/api/feed/latest-per-channel');
+    }
     renderKids(kids);
     renderCategories();
     renderVideos();

@@ -6,7 +6,7 @@
     <title>{% block title %}KidTube{% endblock %}</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
-  <body data-page="{{ page }}">
+  <body data-page="{{ page }}" data-nav-mode="{{ nav_mode or 'kid' }}">
     <div class="sparkles" aria-hidden="true"></div>
     <div class="app-shell">
       <header class="top-header">
@@ -19,16 +19,23 @@
             <span aria-hidden="true">🔍</span>
             <input type="search" placeholder="Search videos, channels, and topics" aria-label="Search" />
           </form>
+          <a href="/admin" class="admin-link">Admin</a>
         </div>
       </header>
 
       <main class="main-content">
+        {% if (nav_mode or 'kid') == 'admin' %}
+        <nav class="top-nav" aria-label="Admin navigation">
+          <a href="/admin" data-route="/admin" class="nav-link">Overview</a>
+          <a href="/admin/channels" data-route="/admin/channels" class="nav-link">Channels</a>
+          <a href="/admin/kids" data-route="/admin/kids" class="nav-link">Kids</a>
+          <a href="/admin/sync" data-route="/admin/sync" class="nav-link">Sync</a>
+        </nav>
+        {% else %}
         <nav class="top-nav" aria-label="Main navigation">
           <a href="/" data-route="/" class="nav-link">Dashboard</a>
-          <a href="/channels" data-route="/channels" class="nav-link">Channels</a>
-          <a href="/kids" data-route="/kids" class="nav-link">Kids</a>
-          <a href="/sync" data-route="/sync" class="nav-link">Sync</a>
         </nav>
+        {% endif %}
         <div id="alerts" aria-live="polite"></div>
         {% block content %}{% endblock %}
       </main>
