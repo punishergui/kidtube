@@ -1,0 +1,46 @@
+services:
+  kidtube:
+    image: ghcr.io/punishergui/kidtube:latest
+    container_name: kidtube
+    restart: unless-stopped
+
+    networks:
+      - proxy
+
+    ports:
+      - "2018:2018"
+
+    environment:
+      # Core
+      TZ: America/Chicago
+      KIDTUBE_PORT: 2018
+      KIDTUBE_BASE_URL: https://kidtube.white-house.cc
+      KIDTUBE_DB_PATH: /data/kidtube.db
+
+      # Admin
+      KIDTUBE_ADMIN_PIN: 1234
+
+      # Discord Integration
+      DISCORD_BOT_TOKEN: 
+      DISCORD_PUBLIC_KEY: 3e4bca8f07b2ea2b4a03d580778f6ef2b12ae583e8f1bab77aa9beb502caba3c
+      DISCORD_GUILD_ID: 1310669904038465676
+      DISCORD_APPROVAL_CHANNEL_ID: "1476973601889452163"
+      DISCORD_ALLOWED_ROLE_IDS: ""
+      DISCORD_ALLOWED_USER_IDS: ""
+
+    volumes:
+      - ./data:/data
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+
+      - "traefik.http.routers.kidtube.rule=Host(`kidtube.white-house.cc`)"
+      - "traefik.http.routers.kidtube.entrypoints=websecure"
+      - "traefik.http.routers.kidtube.tls=true"
+
+      - "traefik.http.services.kidtube.loadbalancer.server.port=2018"
+
+networks:
+  proxy:
+    external: true
