@@ -33,6 +33,10 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-,format=short,enable=${{ github.ref == 'refs/heads/main' }}
             type=ref,event=tag
+      - name: Runtime dependency smoke test (httpx)
+        run: |
+          docker build -t kidtube-smoke:ci .
+          docker run --rm kidtube-smoke:ci python -c "import httpx; print(httpx.__version__)"
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
