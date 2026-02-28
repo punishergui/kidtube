@@ -49,6 +49,7 @@ def _not_found_response(query: str, error: str | None = None) -> ChannelLookupRe
 
 
 @router.get("", response_model=ChannelLookupResponse)
+@router.get("/", response_model=ChannelLookupResponse)
 async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> ChannelLookupResponse:
     normalized = query.strip()
     try:
