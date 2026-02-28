@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
@@ -34,8 +34,14 @@ class CategoryRead(BaseModel):
 
 
 @router.get("", response_model=list[CategoryRead])
-def list_categories(session: Session = Depends(get_session)) -> list[Category]:
-    return session.exec(select(Category).order_by(Category.id)).all()
+def list_categories(
+    session: Session = Depends(get_session),
+    include_disabled: bool = Query(default=False),
+) -> list[Category]:
+    query = select(Category)
+    if not include_disabled:
+        query = query.where(Category.enabled.is_(True))
+    return session.exec(query.order_by(Category.id)).all()
 
 
 @router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)

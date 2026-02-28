@@ -20,11 +20,13 @@ router = APIRouter()
 class ChannelCreate(BaseModel):
     input: str
     category: str | None = None
+    category_id: int | None = None
 
 
 class ChannelUpdate(BaseModel):
     enabled: bool | None = None
     category: str | None = None
+    category_id: int | None = None
     allowed: bool | None = None
     blocked: bool | None = None
     blocked_reason: str | None = None
@@ -38,6 +40,7 @@ class ChannelRead(BaseModel):
     avatar_url: str | None
     banner_url: str | None
     category: str | None
+    category_id: int | None
     allowed: bool
     blocked: bool
     blocked_reason: str | None
@@ -65,6 +68,7 @@ async def create_channel(
         youtube_id=placeholder_id,
         input=raw_input,
         category=payload.category,
+        category_id=payload.category_id,
         resolve_status="pending",
     )
 

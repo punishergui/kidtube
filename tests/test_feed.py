@@ -252,3 +252,90 @@ def test_blocking_channel_purges_cached_videos_and_delete_channel(tmp_path: Path
 
     assert feed_response.status_code == 200
     assert feed_response.json() == []
+
+
+def test_feed_hides_channels_in_disabled_categories(tmp_path: Path) -> None:
+    db_path = tmp_path / "feed-categories-test.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    now = datetime.now(timezone.utc)  # noqa: UP017
+
+    with Session(engine) as session:
+        education = session.execute(
+            text("SELECT id FROM categories WHERE name = 'education'")
+        ).one()[0]
+        fun = session.execute(text("SELECT id FROM categories WHERE name = 'fun'")).one()[0]
+
+        c_enabled = Channel(
+            youtube_id="UCenabledcat0000000000000",
+            title="Enabled Category",
+            category="education",
+            category_id=education,
+            resolve_status="ok",
+            allowed=True,
+        )
+        c_disabled = Channel(
+            youtube_id="UCdisabledcat000000000000",
+            title="Disabled Category",
+            category="fun",
+            category_id=fun,
+            resolve_status="ok",
+            allowed=True,
+        )
+        session.add(c_enabled)
+        session.add(c_disabled)
+        session.commit()
+        session.refresh(c_enabled)
+        session.refresh(c_disabled)
+
+        session.add(
+            Video(
+                youtube_id="vid-enabled-cat",
+                channel_id=c_enabled.id,
+                title="Enabled category video",
+                thumbnail_url="https://img.example/enabled-cat.jpg",
+                published_at=now,
+            )
+        )
+        session.add(
+            Video(
+                youtube_id="vid-disabled-cat",
+                channel_id=c_disabled.id,
+                title="Disabled category video",
+                thumbnail_url="https://img.example/disabled-cat.jpg",
+                published_at=now - timedelta(minutes=1),
+            )
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            before_disable = client.get("/api/feed")
+            disable_response = client.patch(
+                f"/api/categories/{fun}",
+                json={"enabled": False},
+            )
+            feed_after_disable = client.get("/api/feed")
+            filtered_disabled = client.get("/api/feed?category=fun")
+            filtered_enabled = client.get("/api/feed?category=education")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert before_disable.status_code == 200
+    assert [item["video_youtube_id"] for item in before_disable.json()] == [
+        "vid-enabled-cat",
+        "vid-disabled-cat",
+    ]
+
+    assert disable_response.status_code == 200
+    assert disable_response.json()["enabled"] is False
+
+    assert feed_after_disable.status_code == 200
+    assert [item["video_youtube_id"] for item in feed_after_disable.json()] == ["vid-enabled-cat"]
+
+    assert filtered_disabled.status_code == 200
+    assert filtered_disabled.json() == []
+
+    assert filtered_enabled.status_code == 200
+    assert [item["video_youtube_id"] for item in filtered_enabled.json()] == ["vid-enabled-cat"]

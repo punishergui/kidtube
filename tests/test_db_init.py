@@ -45,6 +45,7 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
         "blocked",
         "blocked_at",
         "blocked_reason",
+        "category_id",
     }.issubset(channel_columns)
     assert "idx_videos_channel_published_at" in indexes
     assert {"seconds_watched", "created_at", "category_id"}.issubset(watch_log_columns)
@@ -61,5 +62,14 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
         }
 
     assert "idx_channels_allowed_blocked_enabled" in channel_indexes
+    assert "idx_channels_category_id" in channel_indexes
     assert "idx_search_log_kid_created_at" in search_log_indexes
     assert "idx_watch_log_kid_created_at" in watch_log_indexes
+
+
+    with Session(engine) as session:
+        default_categories = {
+            row[0] for row in session.execute(text("SELECT name FROM categories"))
+        }
+
+    assert {"education", "fun"}.issubset(default_categories)
