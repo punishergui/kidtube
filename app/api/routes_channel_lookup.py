@@ -3,7 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from app.services.youtube import YouTubeResolveError, fetch_latest_videos, resolve_channel
+from app.services.youtube import (
+    YouTubeResolveError,
+    fetch_latest_videos,
+    resolve_channel,
+)
 
 router = APIRouter()
 

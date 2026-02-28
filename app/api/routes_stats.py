@@ -28,6 +28,8 @@ def watch_stats(
         text(
             """
             SELECT
+                wl.kid_id AS kid_id,
+                k.name AS kid_name,
                 wl.category_id AS category_id,
                 cat.name AS category_name,
                 COALESCE(SUM(wl.seconds_watched), 0) AS lifetime_seconds,
@@ -38,9 +40,10 @@ def watch_stats(
                     END
                 ), 0) AS today_seconds
             FROM watch_log wl
+            JOIN kids k ON k.id = wl.kid_id
             LEFT JOIN categories cat ON cat.id = wl.category_id
             WHERE (:kid_id IS NULL OR wl.kid_id = :kid_id)
-            GROUP BY wl.category_id, cat.name
+            GROUP BY wl.kid_id, k.name, wl.category_id, cat.name
             ORDER BY lifetime_seconds DESC
             """
         ),
@@ -51,15 +54,17 @@ def watch_stats(
         text(
             """
             SELECT
-                COALESCE(SUM(seconds_watched), 0) AS lifetime_seconds,
+                MAX(k.name) AS kid_name,
+                COALESCE(SUM(wl.seconds_watched), 0) AS lifetime_seconds,
                 COALESCE(SUM(
                     CASE
-                        WHEN created_at >= :today_start THEN seconds_watched
+                        WHEN wl.created_at >= :today_start THEN wl.seconds_watched
                         ELSE 0
                     END
                 ), 0) AS today_seconds
-            FROM watch_log
-            WHERE (:kid_id IS NULL OR kid_id = :kid_id)
+            FROM watch_log wl
+            JOIN kids k ON k.id = wl.kid_id
+            WHERE (:kid_id IS NULL OR wl.kid_id = :kid_id)
             """
         ),
         {'kid_id': kid_id, 'today_start': today_start},
@@ -67,10 +72,13 @@ def watch_stats(
 
     return {
         'kid_id': kid_id,
+        'kid_name': totals['kid_name'] if totals else None,
         'today_seconds': int(totals['today_seconds']) if totals else 0,
         'lifetime_seconds': int(totals['lifetime_seconds']) if totals else 0,
         'categories': [
             {
+                'kid_id': row['kid_id'],
+                'kid_name': row['kid_name'],
                 'category_id': row['category_id'],
                 'category_name': row['category_name'],
                 'today_seconds': int(row['today_seconds']),

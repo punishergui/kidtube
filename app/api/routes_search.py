@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
@@ -13,6 +14,7 @@ from app.services.limits import is_in_any_schedule, is_in_bedtime
 from app.services.youtube import search_videos
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class SearchResult(BaseModel):
@@ -41,8 +43,11 @@ async def search(
 
     session.add(SearchLog(kid_id=kid_id, query=normalized))
     session.commit()
-
-    return await search_videos(normalized)
+    try:
+        return await search_videos(normalized)
+    except Exception:
+        logger.debug("search_backend=api_failed", exc_info=True)
+        return []
 
 
 @router.get("/logs")

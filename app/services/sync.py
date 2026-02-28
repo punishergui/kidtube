@@ -15,6 +15,7 @@ from app.services.youtube import (
     fetch_latest_videos,
     resolve_channel,
 )
+from app.services.youtube_ytdlp import fetch_channel_videos
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,35 @@ def select_eligible_channels(session: Session) -> list[Channel]:
     ).all()
 
 
+async def _fetch_channel_videos_with_fallback(channel_youtube_id: str) -> list[dict[str, str]]:
+    if settings.youtube_api_key:
+        try:
+            api_videos = await fetch_latest_videos(
+                channel_youtube_id,
+                max_results=settings.sync_max_videos_per_channel,
+            )
+            logger.debug("sync_backend=api")
+            return api_videos
+        except Exception:
+            logger.debug("sync_backend=api_failed_fallback_to_ytdlp", exc_info=True)
+
+    ytdlp_videos = await fetch_channel_videos(
+        channel_youtube_id,
+        max_results=settings.sync_max_videos_per_channel,
+    )
+    logger.debug("sync_backend=ytdlp")
+    return [
+        {
+            "youtube_id": str(item.get("video_id") or ""),
+            "title": str(item.get("title") or "Untitled"),
+            "thumbnail_url": str(item.get("thumbnail_url") or ""),
+            "published_at": str(item.get("published_at") or datetime.now(UTC).isoformat()),
+        }
+        for item in ytdlp_videos
+        if item.get("video_id")
+    ]
+
+
 async def refresh_channel(channel_id: int) -> None:
     with Session(engine) as session:
         channel = session.get(Channel, channel_id)
@@ -54,10 +84,9 @@ async def refresh_channel(channel_id: int) -> None:
 
         try:
             metadata = await fetch_channel_metadata(channel.youtube_id)
-            videos = await fetch_latest_videos(
-                channel.youtube_id,
-                max_results=settings.sync_max_videos_per_channel,
-            )
+            videos = await _fetch_channel_videos_with_fallback(channel.youtube_id)
+            if not videos:
+                raise RuntimeError("No videos returned from API or yt-dlp fallback")
         except Exception as exc:
             channel.resolve_error = str(exc)
             session.add(channel)
@@ -105,10 +134,9 @@ async def refresh_enabled_channels() -> dict[str, int | list[dict[str, str | int
                     summary["resolved"] = int(summary["resolved"]) + 1
 
                 metadata = await fetch_channel_metadata(channel.youtube_id)
-                videos = await fetch_latest_videos(
-                    channel.youtube_id,
-                    max_results=settings.sync_max_videos_per_channel,
-                )
+                videos = await _fetch_channel_videos_with_fallback(channel.youtube_id)
+                if not videos:
+                    raise RuntimeError("No videos returned from API or yt-dlp fallback")
                 channel.title = metadata.get("title")
                 channel.avatar_url = metadata.get("avatar_url")
                 channel.banner_url = metadata.get("banner_url")
@@ -130,6 +158,10 @@ async def refresh_enabled_channels() -> dict[str, int | list[dict[str, str | int
                         "input": channel.input,
                         "error": str(exc),
                     }
+                )
+                logger.error(
+                    "channel_sync_failed",
+                    extra={"channel_id": channel.id, "error": str(exc)},
                 )
             finally:
                 session.add(channel)

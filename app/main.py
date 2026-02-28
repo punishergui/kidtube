@@ -5,10 +5,12 @@ import logging
 import os
 import time
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.router import api_router
@@ -21,10 +23,32 @@ from app.core.version import get_version_payload
 from app.db.migrate import run_migrations
 from app.db.paths import ensure_db_parent_writable, format_dir_diagnostics
 from app.db.session import engine
+from app.services.daily_stats import send_daily_stats
 from app.services.sync import periodic_sync
 from app.ui import router as ui_router
 
 logger = logging.getLogger(__name__)
+
+
+async def periodic_daily_stats(stop_event: asyncio.Event) -> None:
+    while not stop_event.is_set():
+        now = datetime.now(UTC)
+        next_run = now.replace(hour=settings.stats_hour % 24, minute=0, second=0, microsecond=0)
+        if next_run <= now:
+            next_run = next_run + timedelta(days=1)
+
+        wait_seconds = max(1, int((next_run - now).total_seconds()))
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=wait_seconds)
+            continue
+        except TimeoutError:
+            pass
+
+        try:
+            with Session(engine) as session:
+                await send_daily_stats(session)
+        except Exception as exc:
+            logger.warning("Daily stats task failed: %s", exc)
 
 
 @asynccontextmanager
@@ -62,8 +86,10 @@ async def lifespan(app: FastAPI):
 
     stop_event = asyncio.Event()
     sync_task: asyncio.Task[None] | None = None
+    daily_stats_task: asyncio.Task[None] | None = None
     if settings.sync_enabled:
         sync_task = asyncio.create_task(periodic_sync(stop_event))
+    daily_stats_task = asyncio.create_task(periodic_daily_stats(stop_event))
 
     try:
         yield
@@ -73,6 +99,13 @@ async def lifespan(app: FastAPI):
             sync_task.cancel()
             try:
                 await sync_task
+            except asyncio.CancelledError:
+                pass
+
+        if daily_stats_task:
+            daily_stats_task.cancel()
+            try:
+                await daily_stats_task
             except asyncio.CancelledError:
                 pass
 

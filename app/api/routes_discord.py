@@ -19,6 +19,66 @@ router = APIRouter(prefix="/discord", tags=["discord"])
 logger = logging.getLogger(__name__)
 
 
+def build_approval_embed_payload(
+    *,
+    request_id: int,
+    request_type: str,
+    youtube_id: str | None,
+    kid_name: str,
+    video_title: str | None,
+    channel_name: str | None,
+) -> dict[str, object]:
+    safe_video_title = video_title or "Unknown video"
+    safe_channel_name = channel_name or "Unknown channel"
+    safe_kid = kid_name or "Unknown kid"
+    thumbnail_url = (
+        f"https://i.ytimg.com/vi/{youtube_id}/hqdefault.jpg" if youtube_id else None
+    )
+
+    approve_url = f"https://discord.com/channels/@me?approve=request:{request_id}:approve"
+    deny_url = f"https://discord.com/channels/@me?deny=request:{request_id}:deny"
+
+    embed: dict[str, object] = {
+        "title": f"New Request from {safe_kid}",
+        "description": (
+            f"Type: **{request_type}**\n"
+            f"Approve: {approve_url}\n"
+            f"Deny: {deny_url}"
+        ),
+        "color": 0x5F6DFF,
+        "fields": [
+            {"name": "Video title", "value": safe_video_title, "inline": False},
+            {"name": "Channel name", "value": safe_channel_name, "inline": True},
+            {"name": "Requested by", "value": safe_kid, "inline": True},
+        ],
+    }
+    if thumbnail_url:
+        embed["thumbnail"] = {"url": thumbnail_url}
+
+    return {
+        "embeds": [embed],
+        "components": [
+            {
+                "type": 1,
+                "components": [
+                    {
+                        "type": 2,
+                        "style": 3,
+                        "label": "Approve",
+                        "custom_id": f"request:{request_id}:approve",
+                    },
+                    {
+                        "type": 2,
+                        "style": 4,
+                        "label": "Deny",
+                        "custom_id": f"request:{request_id}:deny",
+                    },
+                ],
+            }
+        ],
+    }
+
+
 def _verify_signature(body: bytes, signature: str, timestamp: str) -> None:
     verify_key = VerifyKey(bytes.fromhex(settings.discord_public_key or ""))
     verify_key.verify(f"{timestamp}".encode() + body, bytes.fromhex(signature))

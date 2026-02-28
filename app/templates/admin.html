@@ -26,4 +26,56 @@
     <p class="small">Run sync and review exactly what changed.</p>
   </a>
 </section>
+
+<section class="panel" style="margin-top:1rem;padding:1rem;">
+  <h2>Security</h2>
+  <p id="admin-pin-status" class="small">Loading PIN status…</p>
+  <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+    <input id="new-admin-pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="New PIN (4-6 digits)" />
+    <input id="current-admin-pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="Current PIN (if required)" />
+    <button id="save-admin-pin" class="btn-primary" type="button">Save PIN</button>
+    <button id="remove-admin-pin" class="btn-secondary" type="button">Remove PIN</button>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+  async function refreshAdminPinStatus() {
+    const res = await fetch('/api/session/admin-pin');
+    const data = await res.json();
+    document.getElementById('admin-pin-status').textContent = data.is_set
+      ? 'PIN is set'
+      : 'No PIN set (anyone can access admin)';
+  }
+
+  document.getElementById('save-admin-pin')?.addEventListener('click', async () => {
+    const newPin = document.getElementById('new-admin-pin').value.trim();
+    const currentPin = document.getElementById('current-admin-pin').value.trim();
+    const res = await fetch('/api/session/admin-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_pin: newPin, current_pin: currentPin }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || 'Unable to save PIN');
+      return;
+    }
+    document.getElementById('new-admin-pin').value = '';
+    document.getElementById('current-admin-pin').value = '';
+    await refreshAdminPinStatus();
+  });
+
+  document.getElementById('remove-admin-pin')?.addEventListener('click', async () => {
+    const res = await fetch('/api/session/admin-pin', { method: 'DELETE' });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || 'Unable to remove PIN');
+      return;
+    }
+    await refreshAdminPinStatus();
+  });
+
+  refreshAdminPinStatus();
+</script>
 {% endblock %}

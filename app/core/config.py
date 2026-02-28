@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import json
+import os
 from pathlib import Path
 
 from pydantic import AliasChoices, Field
@@ -5,9 +9,27 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.db.paths import resolve_db_path
 
+ADMIN_PIN_FILE = Path("/data/admin_pin.json")
+
 
 def _default_database_url() -> str:
     return f"sqlite:///{resolve_db_path()}"
+
+
+def _load_admin_pin() -> str | None:
+    try:
+        if ADMIN_PIN_FILE.exists():
+            payload = json.loads(ADMIN_PIN_FILE.read_text(encoding="utf-8"))
+            value = payload.get("admin_pin")
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    except Exception:
+        pass
+
+    env_pin = os.getenv("ADMIN_PIN")
+    if env_pin and env_pin.strip():
+        return env_pin.strip()
+    return None
 
 
 class Settings(BaseSettings):
@@ -33,10 +55,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("KIDTUBE_SYNC_INTERVAL_SECONDS", "SYNC_INTERVAL_SECONDS"),
     )
     sync_max_videos_per_channel: int = Field(default=15, alias="SYNC_MAX_VIDEOS_PER_CHANNEL")
+    stats_hour: int = Field(default=20, alias="STATS_HOUR")
     http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
     # IMPORTANT: override in production with a strong random value.
     secret_key: str = Field(default="dev-only-change-me", alias="SECRET_KEY")
-    admin_pin: str | None = Field(default=None, alias="ADMIN_PIN")
+    admin_pin: str | None = Field(default_factory=_load_admin_pin)
 
     @property
     def sqlite_path(self) -> Path | None:
@@ -47,3 +70,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
