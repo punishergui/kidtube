@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KidTube · Profiles</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #0d1117;
+      color: #e6edf3;
+      opacity: 1;
+      transition: opacity 0.4s ease;
+      overflow: hidden;
+    }
+
+    .profiles-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      text-align: center;
+      gap: 0.8rem;
+    }
+
+    .brand {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #5f6dff;
+      margin: 0;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .profile-grid {
+      margin-top: 1.2rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.2rem;
+      width: min(900px, 100%);
+    }
+
+    .profile-tile {
+      width: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.7rem;
+      cursor: pointer;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 0.5rem;
+      border-radius: 14px;
+      transition: transform 0.2s ease;
+    }
+
+    .profile-tile:hover,
+    .profile-tile:focus-visible {
+      transform: scale(1.05);
+      outline: none;
+    }
+
+    .profile-avatar {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: #161b22;
+      border: 2px solid #30363d;
+      display: grid;
+      place-items: center;
+      color: #e6edf3;
+      font-size: 1.5rem;
+      font-weight: 800;
+      overflow: hidden;
+      text-transform: uppercase;
+    }
+
+    .profile-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .profile-name {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
+      word-break: break-word;
+    }
+
+    .parent-link {
+      margin-top: 0.9rem;
+      font-size: 0.9rem;
+      color: #e6edf3;
+      text-decoration: underline;
+      opacity: 0.9;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 40;
+      padding: 1rem;
+    }
+
+    .overlay-card {
+      background: #161b22;
+      color: #e6edf3;
+      border: 1px solid #30363d;
+      width: min(420px, 100%);
+      border-radius: 16px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      max-height: calc(100vh - 2rem);
+      overflow: auto;
+    }
+
+    .overlay h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    .pin-dots {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .pin-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid #6e7681;
+      background: transparent;
+      transition: background-color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .pin-dot.filled {
+      background: #5f6dff;
+      border-color: #5f6dff;
+    }
+
+    .pin-dots.shake {
+      animation: shake 0.32s ease;
+    }
+
+    .pin-dots.error .pin-dot {
+      border-color: #da3633;
+      background: rgba(218, 54, 51, 0.25);
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px); }
+      50% { transform: translateX(5px); }
+      75% { transform: translateX(-4px); }
+    }
+
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(72px, 1fr));
+      gap: 0.55rem;
+      width: 100%;
+      justify-items: center;
+    }
+
+    .keypad button {
+      min-width: 72px;
+      min-height: 72px;
+      width: 100%;
+      max-width: 110px;
+      border-radius: 12px;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #e6edf3;
+      font-size: 1.5rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .cancel-btn {
+      margin-top: 0.2rem;
+      border-radius: 10px;
+      border: 1px solid #30363d;
+      padding: 0.6rem 1rem;
+      background: #21262d;
+      color: #e6edf3;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    @media (max-height: 768px) {
+      .overlay-card {
+        gap: 0.55rem;
+        padding: 0.85rem;
+      }
+
+      .keypad button {
+        min-height: 68px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="profiles-page">
+    <h1 class="brand">KidTube</h1>
+    <p class="subtitle">Who's watching?</p>
+
+    <section class="profile-grid" aria-label="Kid profiles">
+      {% for kid in kids %}
+      {% set initials = (kid.name or 'K')[:2] %}
+      <button
+        class="profile-tile"
+        type="button"
+        data-kid-id="{{ kid.id }}"
+        data-has-pin="{{ 'true' if kid.pin else 'false' }}"
+      >
+        <span class="profile-avatar">
+          {% if kid.avatar_url %}
+          <img src="{{ kid.avatar_url }}" alt="{{ kid.name }} avatar" />
+          {% else %}
+          {{ initials }}
+          {% endif %}
+        </span>
+        <span class="profile-name">{{ kid.name }}</span>
+      </button>
+      {% endfor %}
+    </section>
+
+    <a id="parent-controls-link" class="parent-link" href="#">Parent Controls</a>
+  </main>
+
+  <div id="pin-overlay" class="overlay" aria-hidden="true">
+    <div class="overlay-card">
+      <h2>Enter PIN</h2>
+      <div id="pin-dots" class="pin-dots" aria-label="PIN indicators">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+      <div class="keypad" id="pin-keypad">
+        <button type="button" data-key="1">1</button>
+        <button type="button" data-key="2">2</button>
+        <button type="button" data-key="3">3</button>
+        <button type="button" data-key="4">4</button>
+        <button type="button" data-key="5">5</button>
+        <button type="button" data-key="6">6</button>
+        <button type="button" data-key="7">7</button>
+        <button type="button" data-key="8">8</button>
+        <button type="button" data-key="9">9</button>
+        <button type="button" disabled aria-hidden="true" style="visibility:hidden"></button>
+        <button type="button" data-key="0">0</button>
+        <button type="button" data-action="backspace">⌫</button>
+      </div>
+      <button id="pin-cancel" type="button" class="cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <div id="admin-pin-overlay" class="overlay" aria-hidden="true">
+    <div class="overlay-card">
+      <h2>Enter PIN</h2>
+      <div id="admin-pin-dots" class="pin-dots" aria-label="Admin PIN indicators">
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+        <span class="pin-dot"></span>
+      </div>
+      <div class="keypad" id="admin-pin-keypad">
+        <button type="button" data-key="1">1</button>
+        <button type="button" data-key="2">2</button>
+        <button type="button" data-key="3">3</button>
+        <button type="button" data-key="4">4</button>
+        <button type="button" data-key="5">5</button>
+        <button type="button" data-key="6">6</button>
+        <button type="button" data-key="7">7</button>
+        <button type="button" data-key="8">8</button>
+        <button type="button" data-key="9">9</button>
+        <button type="button" disabled aria-hidden="true" style="visibility:hidden"></button>
+        <button type="button" data-key="0">0</button>
+        <button type="button" data-action="backspace">⌫</button>
+      </div>
+      <button id="admin-pin-cancel" type="button" class="cancel-btn">Cancel</button>
+    </div>
+  </div>
+
+  <script src="/static/profiles.js"></script>
+</body>
+</html>

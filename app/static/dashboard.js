@@ -2,14 +2,8 @@ import { requestJson, showToast } from '/static/app.js';
 
 const grid = document.getElementById('dashboard-grid');
 const latestGrid = document.getElementById('latest-channel-grid');
-const kidSelector = document.getElementById('kid-selector');
 const categoryPills = document.getElementById('category-pills');
 const moreButton = document.getElementById('see-more-btn');
-const pinGate = document.getElementById('pin-gate');
-const pinInput = document.getElementById('pin-input');
-const pinSubmit = document.getElementById('pin-submit');
-const pinCancel = document.getElementById('pin-cancel');
-const pinError = document.getElementById('pin-error');
 const categoryPanel = document.getElementById('category-panel');
 const newAdventures = document.getElementById('new-adventures');
 const latestVideos = document.getElementById('latest-videos');
@@ -23,13 +17,11 @@ const queryParams = new URLSearchParams(window.location.search);
 const state = {
   items: [],
   latestPerChannel: [],
-  kids: [],
   allowedChannels: [],
   shorts: [],
   categories: [{ id: null, name: 'all', enabled: true }],
   category: 'all',
   kidId: null,
-  pendingKidId: null,
   channelFilter: queryParams.get('channel_id') || null,
   offset: 0,
   limit: 30,
@@ -46,9 +38,6 @@ function renderCategories() {
   categoryPills.innerHTML = state.categories.map((category) => `<button class="pill ${category.name === state.category ? 'active' : ''}" data-category="${category.name}">${category.name[0].toUpperCase()}${category.name.slice(1)}</button>`).join('');
   categoryPills.querySelectorAll('button[data-category]').forEach((button) => button.addEventListener('click', () => { state.category = button.dataset.category; renderCategories(); renderVideos(); }));
 }
-function kidCard(kid) { const isActive = kid.id === state.kidId || kid.id === state.pendingKidId; const initials = kid.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase(); return `<button class="kid-chip ${isActive ? 'active' : ''}" data-kid-id="${kid.id}">${kid.avatar_url ? `<img class="kid-avatar" src="${kid.avatar_url}" alt="${kid.name}" />` : `<span class="kid-avatar kid-initials">${initials}</span>`}<strong>${kid.name}</strong></button>`; }
-
-function renderKids() { if (!state.kids.length) { kidSelector.innerHTML = '<article class="empty-state">No kid profiles yet.</article>'; return; } kidSelector.innerHTML = state.kids.map(kidCard).join(''); kidSelector.querySelectorAll('[data-kid-id]').forEach((button) => button.addEventListener('click', async () => { const payload = await requestJson('/api/session/kid', { method: 'POST', body: JSON.stringify({ kid_id: Number(button.dataset.kidId) }) }); state.pendingKidId = payload.pin_required ? payload.kid_id : null; state.kidId = payload.pin_required ? null : payload.kid_id; pinGate.hidden = !payload.pin_required; if (!payload.pin_required) await loadFeedData(); renderKids(); })); }
 function card(item, isShort = false) { return `<a class="video-card panel ${isShort ? 'short-card' : ''}" href="/watch/${item.video_youtube_id}"><img class="thumb" src="${item.video_thumbnail_url}" alt="${item.video_title}" /><div><h3 class="video-title">${item.video_title}</h3><p class="small">${item.channel_title || 'Unknown'} · ${formatDuration(item.video_duration_seconds)}</p></div></a>`; }
 
 function renderVideos() {
@@ -87,7 +76,7 @@ async function loadMore() { if (!state.hasMore) return; const params = new URLSe
 
 async function loadFeedData() {
   if (!state.kidId) { setFeedVisible(false); return; }
-  pinGate.hidden = true; setFeedVisible(true); state.items = []; state.offset = 0; state.hasMore = true;
+  setFeedVisible(true); state.items = []; state.offset = 0; state.hasMore = true;
   [state.latestPerChannel, state.allowedChannels, state.shorts] = await Promise.all([
     requestJson(`/api/feed/latest-per-channel?kid_id=${state.kidId}`),
     requestJson(`/api/channels/allowed?kid_id=${state.kidId}`),
@@ -97,20 +86,25 @@ async function loadFeedData() {
 }
 
 async function loadDashboard() {
-  const [kids, sessionState, apiCategories] = await Promise.all([requestJson('/api/kids'), requestJson('/api/session'), requestJson('/api/categories')]);
-  state.kids = kids;
+  const [sessionState, apiCategories] = await Promise.all([requestJson('/api/session'), requestJson('/api/categories')]);
   state.categories = [{ id: null, name: 'all', enabled: true }, ...apiCategories.map((c) => ({ id: c.id, name: c.name, enabled: c.enabled }))];
   state.kidId = sessionState.kid_id;
-  state.pendingKidId = sessionState.pending_kid_id;
-  pinGate.hidden = !state.pendingKidId;
-  renderKids();
   renderCategories();
   await loadFeedData();
 }
 
-pinSubmit?.addEventListener('click', async () => { if (pinError) pinError.hidden = true; try { const payload = await requestJson('/api/session/kid/verify-pin', { method: 'POST', body: JSON.stringify({ pin: pinInput.value }) }); state.kidId = payload.kid_id; state.pendingKidId = null; pinInput.value = ''; renderKids(); await loadFeedData(); } catch { if (pinError) pinError.hidden = false; } });
-pinCancel?.addEventListener('click', () => { state.pendingKidId = null; pinGate.hidden = true; pinInput.value = ''; if (pinError) pinError.hidden = true; renderKids(); });
 moreButton?.addEventListener('click', async () => { moreButton.disabled = true; await loadMore(); moreButton.disabled = false; });
 window.addEventListener('kidtube:search-results', (event) => { state.searchResults = event.detail.results || []; renderSearchResults(); });
+
+
+document.getElementById('switch-profile')?.addEventListener('click', async () => {
+  await fetch('/api/session/logout', { method: 'POST' });
+  window.location = '/';
+});
+
+document.getElementById('parent-controls')?.addEventListener('click', async () => {
+  await fetch('/api/session/logout', { method: 'POST' });
+  window.location = '/?admin=1';
+});
 
 loadDashboard().catch((error) => showToast(`Unable to load dashboard: ${error.message}`, 'error'));

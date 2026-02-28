@@ -5,6 +5,10 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlmodel import Session, select
+
+from app.db.models import Kid
+from app.db.session import engine
 
 router = APIRouter()
 
@@ -31,9 +35,38 @@ def render_page(request: Request, template_name: str, **context: str) -> HTMLRes
 
 
 @router.get("/", response_class=HTMLResponse)
+def ui_profiles(request: Request) -> HTMLResponse | RedirectResponse:
+    if request.session.get("kid_id"):
+        return RedirectResponse(url="/dashboard", status_code=307)
+
+    with Session(engine) as session:
+        kids = session.exec(select(Kid).order_by(Kid.created_at)).all()
+
+    return render_page(request, "profiles.html", kids=kids)
+
+
 @router.get("/dashboard", response_class=HTMLResponse)
-def ui_dashboard(request: Request) -> HTMLResponse:
-    return render_page(request, "dashboard.html", page="dashboard", nav_mode="kid")
+def ui_dashboard(request: Request) -> HTMLResponse | RedirectResponse:
+    kid_id = request.session.get("kid_id")
+    if not kid_id:
+        return RedirectResponse(url="/", status_code=307)
+
+    with Session(engine) as session:
+        kid = session.get(Kid, kid_id)
+
+    if not kid:
+        request.session.pop("kid_id", None)
+        request.session.pop("pending_kid_id", None)
+        return RedirectResponse(url="/", status_code=307)
+
+    current_kid = {"name": kid.name, "avatar_url": kid.avatar_url}
+    return render_page(
+        request,
+        "dashboard.html",
+        page="dashboard",
+        nav_mode="kid",
+        current_kid=current_kid,
+    )
 
 
 @router.get('/admin', response_class=HTMLResponse)
