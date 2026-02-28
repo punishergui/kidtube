@@ -390,7 +390,7 @@ async def upload_kid_avatar(
     data = await file.read()
     avatar_path.write_bytes(data)
 
-    timestamp = int(datetime.now(datetime.UTC).timestamp())
+    timestamp = int(datetime.now(timezone.utc).timestamp())  # noqa: UP017
     kid.avatar_url = f"/static/uploads/kids/{kid_id}/avatar.png?v={timestamp}"
     session.add(kid)
     session.commit()
