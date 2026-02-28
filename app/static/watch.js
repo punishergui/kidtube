@@ -4,7 +4,11 @@ const container = document.getElementById('watch-container');
 const youtubeId = container?.dataset.youtubeId;
 const embedOrigin = container?.dataset.embedOrigin;
 const startedAt = Date.now();
-let logged = false;
+let accumulatedSeconds = 0;
+let lastTick = Date.now();
+let kidId = null;
+let flushBusy = false;
+let heartbeatHandle = null;
 
 let ytApiPromise;
 
@@ -46,25 +50,9 @@ function renderNotFound() {
   `;
 }
 
-function embedUrl(videoId) {
-  const params = new URLSearchParams({
-    rel: '0',
-    modestbranding: '1',
-    playsinline: '1',
-    enablejsapi: '1',
-    origin: embedOrigin || window.location.origin,
-  });
-
-  return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`;
-}
-
 function loadYoutubeIframeApi() {
-  if (window.YT?.Player) {
-    return Promise.resolve(window.YT);
-  }
-  if (ytApiPromise) {
-    return ytApiPromise;
-  }
+  if (window.YT?.Player) return Promise.resolve(window.YT);
+  if (ytApiPromise) return ytApiPromise;
 
   ytApiPromise = new Promise((resolve, reject) => {
     const script = document.createElement('script');
@@ -82,6 +70,30 @@ function loadYoutubeIframeApi() {
   return ytApiPromise;
 }
 
+function accrueWatchTime() {
+  const now = Date.now();
+  accumulatedSeconds += Math.max(0, Math.floor((now - lastTick) / 1000));
+  lastTick = now;
+}
+
+async function flushWatchLog(force = false) {
+  if (!youtubeId || !kidId || flushBusy) return;
+  if (!force && accumulatedSeconds < 10) return;
+  const delta = Math.max(1, accumulatedSeconds);
+  accumulatedSeconds = 0;
+  flushBusy = true;
+  try {
+    await requestJson('/api/playback/watch/log', {
+      method: 'POST',
+      body: JSON.stringify({ kid_id: kidId, video_id: youtubeId, seconds_delta: delta }),
+    });
+  } catch {
+    // no-op
+  } finally {
+    flushBusy = false;
+  }
+}
+
 async function loadVideo() {
   if (!youtubeId) {
     renderNotFound();
@@ -89,7 +101,9 @@ async function loadVideo() {
   }
 
   try {
-    const video = await requestJson(`/api/videos/${youtubeId}`);
+    const sessionState = await requestJson('/api/session');
+    kidId = sessionState.kid_id || null;
+    const video = await requestJson(`/api/videos/${youtubeId}?kid_id=${kidId || ''}`);
     const channelId = video.channel_id || '';
     container.innerHTML = `
       <section class="player-wrap panel">
@@ -117,16 +131,15 @@ async function loadVideo() {
       </article>
     `;
 
+    heartbeatHandle = window.setInterval(async () => {
+      accrueWatchTime();
+      await flushWatchLog(false);
+    }, 10000);
+
     const yt = await loadYoutubeIframeApi();
     new yt.Player('watch-player', {
       videoId: video.youtube_id,
-      playerVars: {
-        rel: 0,
-        modestbranding: 1,
-        playsinline: 1,
-        enablejsapi: 1,
-        origin: embedOrigin || window.location.origin,
-      },
+      playerVars: { rel: 0, modestbranding: 1, playsinline: 1, enablejsapi: 1, origin: embedOrigin || window.location.origin },
       host: 'https://www.youtube-nocookie.com',
       events: {
         onReady: () => {
@@ -134,34 +147,33 @@ async function loadVideo() {
           if (loading) loading.hidden = true;
         },
         onError: () => showPlaybackFallback(channelId),
+        onStateChange: async (event) => {
+          if (event.data === window.YT.PlayerState.PAUSED || event.data === window.YT.PlayerState.ENDED) {
+            accrueWatchTime();
+            await flushWatchLog(true);
+          }
+        },
       },
     });
   } catch (error) {
     renderNotFound();
-    if (!String(error.message).includes('404')) {
-      showToast(`Unable to load video: ${error.message}`, 'error');
-    }
+    if (!String(error.message).includes('404')) showToast(`Unable to load video: ${error.message}`, 'error');
   }
 }
 
-async function logWatch() {
-  if (logged || !youtubeId) return;
-  try {
-    const sessionState = await requestJson('/api/session');
-    if (!sessionState.kid_id) return;
-    const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
-    await requestJson('/api/playback/log', {
-      method: 'POST',
-      body: JSON.stringify({ kid_id: sessionState.kid_id, youtube_id: youtubeId, seconds_watched: seconds }),
-    });
-    logged = true;
-  } catch {
-    // Ignore logging errors on unload.
+window.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    accrueWatchTime();
+    void flushWatchLog(true);
+  } else {
+    lastTick = Date.now();
   }
-}
+});
 
 window.addEventListener('pagehide', () => {
-  void logWatch();
+  accrueWatchTime();
+  void flushWatchLog(true);
+  if (heartbeatHandle) window.clearInterval(heartbeatHandle);
 });
 
 loadVideo();

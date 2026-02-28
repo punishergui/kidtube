@@ -152,3 +152,40 @@ def test_schedule_serialization_and_enforcement(tmp_path: Path) -> None:
         monday = datetime(2024, 6, 3, 9, 30, tzinfo=timezone.utc)  # noqa: UP017
         assert is_in_any_schedule(session, kid_id=1, now=sunday) is True
         assert is_in_any_schedule(session, kid_id=1, now=monday) is True
+
+
+def test_watch_logs_endpoint_includes_kid_name(tmp_path: Path) -> None:
+    db_path = tmp_path / "phase12-watch-logs.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    with Session(engine) as session:
+        session.execute(text("INSERT INTO kids(name) VALUES ('Piper')"))
+        session.execute(
+            text(
+                "INSERT INTO channels(youtube_id, title, resolve_status, allowed) "
+                "VALUES ('UCWATCH', 'Watch Ch', 'ok', 1)"
+            )
+        )
+        session.execute(
+            text(
+                "INSERT INTO videos(youtube_id, channel_id, title, thumbnail_url, published_at) "
+                "VALUES ('vidwatch001', 1, 'Watch me', 'https://img', '2024-01-01T00:00:00Z')"
+            )
+        )
+        session.execute(
+            text(
+                "INSERT INTO watch_log(kid_id, video_id, seconds_watched, created_at) "
+                "VALUES (1, 1, 30, '2024-01-01T01:00:00Z')"
+            )
+        )
+        session.commit()
+
+    try:
+        with _client_for_engine(engine) as client:
+            response = client.get('/api/logs/watch?limit=10')
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 200
+    assert response.json()[0]['kid_name'] == 'Piper'

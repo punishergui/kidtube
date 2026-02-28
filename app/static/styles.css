@@ -818,3 +818,82 @@ button, .btn-primary, .btn-secondary, .btn-soft, input, select { min-height: 44p
   .main-content { max-width: 1200px; }
   .pin-gate { padding: 1rem; }
 }
+
+.channel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.channel-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.7rem;
+}
+
+.channel-chip-avatar,
+.channel-page-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #e8eeff;
+  display: grid;
+  place-items: center;
+}
+
+.channel-header {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.channel-page-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #eef3ff;
+    --text-muted: #b8c4ea;
+  }
+
+  body {
+    background: linear-gradient(135deg, #111528, #1c1533);
+  }
+
+  .panel,
+  td,
+  .empty-state,
+  .sample-video,
+  .touch-section,
+  input,
+  select,
+  textarea,
+  .header-search,
+  .nav-link,
+  .admin-link,
+  .kid-chip,
+  .btn-secondary,
+  .btn-soft,
+  button {
+    background: #1e2640;
+    color: var(--text);
+    border-color: rgba(210, 220, 255, 0.2);
+  }
+
+  .header-inner {
+    background: rgba(12, 17, 34, 0.78);
+  }
+
+  .small,
+  .channel-name,
+  .channel-row,
+  th {
+    color: var(--text-muted);
+  }
+}

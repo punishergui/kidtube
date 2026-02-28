@@ -48,10 +48,13 @@ async function initSearchLogging() {
   const input = document.getElementById('header-search-input');
   if (!form || !input) return;
 
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
+  let timer;
+  const runSearch = async () => {
     const query = input.value.trim();
-    if (!query) return;
+    if (!query) {
+      window.dispatchEvent(new CustomEvent('kidtube:search-results', { detail: { query, results: [] } }));
+      return;
+    }
 
     try {
       const sessionState = await requestJson('/api/session');
@@ -64,6 +67,16 @@ async function initSearchLogging() {
     } catch (error) {
       showToast(`Unable to search: ${error.message}`, 'error');
     }
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await runSearch();
+  });
+
+  input.addEventListener('keyup', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { void runSearch(); }, 250);
   });
 }
 
