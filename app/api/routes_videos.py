@@ -8,9 +8,20 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
-from app.services.limits import assert_schedule_allowed, assert_under_limit
+from app.services.limits import check_access
 
 router = APIRouter()
+
+_LEGACY_REASON_DETAILS = {
+    "daily_limit": "Daily watch limit reached",
+    "category_limit": "Daily watch limit reached",
+    "bedtime": "Within bedtime window",
+    "schedule": "Outside allowed schedule",
+}
+
+
+def _detail_for_reason(reason: str) -> str:
+    return _LEGACY_REASON_DETAILS.get(reason, reason)
 
 
 class VideoRead(BaseModel):
@@ -37,6 +48,7 @@ def get_video(
             v.thumbnail_url,
             v.published_at,
             c.id AS channel_id,
+            c.youtube_id AS channel_youtube_id,
             c.title AS channel_title,
             c.avatar_url AS channel_avatar_url,
             c.category_id AS category_id,
@@ -53,35 +65,16 @@ def get_video(
         raise HTTPException(status_code=404, detail="Video not found")
 
     if kid_id is not None:
-
-        if bool(row["channel_blocked"]):
-            raise HTTPException(status_code=403, detail="Channel is blocked")
-
-        video_approved = session.execute(
-            text(
-                """
-                SELECT 1
-                FROM video_approvals
-                WHERE youtube_id = :youtube_id
-                LIMIT 1
-                """
-            ),
-            {"youtube_id": youtube_id},
-        ).first() is not None
-        if not bool(row["channel_allowed"]) and not video_approved:
-            raise HTTPException(status_code=403, detail="Video requires approval")
-
-        now = datetime.now(timezone.utc)  # noqa: UP017
-        assert_schedule_allowed(
+        allowed, reason, _details = check_access(
             session,
             kid_id=kid_id,
-            now=now,
-        )
-        assert_under_limit(
-            session,
-            kid_id=kid_id,
+            video_id=youtube_id,
+            channel_id=row["channel_youtube_id"] if "channel_youtube_id" in row else None,
             category_id=row["category_id"],
-            now=now,
+            title=row["title"],
+            now=datetime.now(timezone.utc),  # noqa: UP017
         )
+        if not allowed and reason:
+            raise HTTPException(status_code=403, detail=_detail_for_reason(reason))
 
     return VideoRead.model_validate(row)

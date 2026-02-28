@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
-from app.services.limits import is_in_any_schedule, is_in_bedtime, remaining_seconds_for
+from app.services.limits import check_access
 
 router = APIRouter()
 
@@ -57,27 +57,15 @@ def list_feed(
             return []
         category_id = int(category_row[0])
 
+    now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
-        now = datetime.now(timezone.utc)  # noqa: UP017
-        if not is_in_any_schedule(session, kid_id=kid_id, now=now):
-            return []
-        if is_in_bedtime(session, kid_id=kid_id, now=now):
-            return []
-
-        remaining_seconds = remaining_seconds_for(
+        allowed, _reason, _details = check_access(
             session,
             kid_id=kid_id,
             category_id=category_id,
             now=now,
         )
-        if remaining_seconds is not None and remaining_seconds <= 0:
-            return []
-
-    if kid_id is not None:
-        now = datetime.now(timezone.utc)  # noqa: UP017
-        if not is_in_any_schedule(session, kid_id=kid_id, now=now) or is_in_bedtime(
-            session, kid_id=kid_id, now=now
-        ):
+        if not allowed:
             return []
 
     query = text(
@@ -122,7 +110,24 @@ def list_feed(
             "offset": offset,
         },
     ).mappings().all()
-    return [FeedItem.model_validate(row) for row in rows]
+    if kid_id is None:
+        return [FeedItem.model_validate(row) for row in rows]
+
+    filtered: list[FeedItem] = []
+    for row in rows:
+        allowed, _reason, _details = check_access(
+            session,
+            kid_id=kid_id,
+            video_id=row["video_youtube_id"],
+            channel_id=row["channel_youtube_id"],
+            category_id=category_id,
+            is_shorts=bool(row["video_is_short"]),
+            title=row["video_title"],
+            now=now,
+        )
+        if allowed:
+            filtered.append(FeedItem.model_validate(row))
+    return filtered
 
 
 @router.get("/latest-per-channel", response_model=list[FeedItem])
@@ -130,11 +135,10 @@ def latest_per_channel(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
+    now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
-        now = datetime.now(timezone.utc)  # noqa: UP017
-        if not is_in_any_schedule(session, kid_id=kid_id, now=now) or is_in_bedtime(
-            session, kid_id=kid_id, now=now
-        ):
+        allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
+        if not allowed:
             return []
 
     query = text(
@@ -169,7 +173,23 @@ def latest_per_channel(
         """
     )
     rows = session.execute(query).mappings().all()
-    return [FeedItem.model_validate(row) for row in rows]
+    if kid_id is None:
+        return [FeedItem.model_validate(row) for row in rows]
+
+    filtered: list[FeedItem] = []
+    for row in rows:
+        allowed, _reason, _details = check_access(
+            session,
+            kid_id=kid_id,
+            video_id=row["video_youtube_id"],
+            channel_id=row["channel_youtube_id"],
+            is_shorts=bool(row["video_is_short"]),
+            title=row["video_title"],
+            now=now,
+        )
+        if allowed:
+            filtered.append(FeedItem.model_validate(row))
+    return filtered
 
 
 @router.get('/shorts', response_model=list[FeedItem])
@@ -178,18 +198,11 @@ def list_shorts(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
+    now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
-        now = datetime.now(timezone.utc)  # noqa: UP017
-        if not is_in_any_schedule(session, kid_id=kid_id, now=now) or is_in_bedtime(
-            session, kid_id=kid_id, now=now
-        ):
+        allowed, _reason, _details = check_access(session, kid_id=kid_id, is_shorts=True, now=now)
+        if not allowed:
             return []
-
-    shorts_enabled = session.execute(
-        text("SELECT shorts_enabled FROM parent_settings WHERE id = 1")
-    ).first()
-    if shorts_enabled and int(shorts_enabled[0]) == 0:
-        return []
     rows = session.execute(
         text(
             """
@@ -214,4 +227,20 @@ def list_shorts(
         ),
         {"limit": limit},
     ).mappings().all()
-    return [FeedItem.model_validate(row) for row in rows]
+    if kid_id is None:
+        return [FeedItem.model_validate(row) for row in rows]
+
+    filtered: list[FeedItem] = []
+    for row in rows:
+        allowed, _reason, _details = check_access(
+            session,
+            kid_id=kid_id,
+            video_id=row["video_youtube_id"],
+            channel_id=row["channel_youtube_id"],
+            is_shorts=True,
+            title=row["video_title"],
+            now=now,
+        )
+        if allowed:
+            filtered.append(FeedItem.model_validate(row))
+    return filtered

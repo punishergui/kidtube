@@ -72,11 +72,18 @@ function renderVideos() {
 function renderSearchResults() {
   searchResultsWrap.hidden = !state.searchResults.length;
   if (!state.searchResults.length) return;
+  const actionMarkup = (item) => {
+    if (item.access_state === 'play') return `<a class="btn-secondary" href="/watch/${item.video_id}">Play</a>`;
+    if (item.access_state === 'pending') return '<button class="btn-secondary" type="button" disabled>Pending</button>';
+    if (item.access_state === 'denied') return '<button class="btn-secondary" type="button" disabled>Denied</button>';
+    if (item.access_state === 'blocked') return '<button class="btn-secondary" type="button" disabled>Blocked</button>';
+    return `<button class="btn-primary" data-request-video="${item.video_id}" data-request-channel="${item.channel_id || ''}">Request</button>`;
+  };
   searchResultsGrid.innerHTML = state.searchResults.map((item) => `
     <article class="video-card">
       <img class="thumb" src="${item.thumbnail_url}" alt="${item.title}" />
       <div class="card-body"><h3 class="video-title">${item.title}</h3><p class="video-meta">${item.channel_title}</p>
-      <button class="btn-primary" data-request-video="${item.video_id}" data-request-channel="${item.channel_id || ''}">Request</button></div>
+      ${actionMarkup(item)}</div>
     </article>`).join('');
   searchResultsGrid.querySelectorAll('[data-request-video]').forEach((button) => button.addEventListener('click', async () => {
     if (!state.kidId) return;

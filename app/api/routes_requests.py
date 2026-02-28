@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session
@@ -27,6 +28,20 @@ class RequestRead(BaseModel):
     type: str
     youtube_id: str | None
     kid_id: int | None
+    status: str
+
+
+class RequestQueueRead(BaseModel):
+    id: int
+    type: str
+    channel_id: str | None = None
+    channel_url: str | None = None
+    video_id: str | None = None
+    video_url: str | None = None
+    title: str | None = None
+    requested_by_kid_id: int | None = None
+    requested_by_kid_name: str | None = None
+    created_at: datetime
     status: str
 
 
@@ -79,6 +94,60 @@ async def _send_discord_request_notification(request_row: Request, session: Sess
         logger.exception("discord_webhook_send_failed", extra={"request_id": request_row.id})
 
 
+def _apply_request_action(session: Session, request_row: Request, action: str) -> Request:
+    now = datetime.now(timezone.utc)  # noqa: UP017
+    if action == "deny":
+        if request_row.status == "denied":
+            return request_row
+        request_row.status = "denied"
+        request_row.resolved_at = now
+        session.add(request_row)
+        session.commit()
+        session.refresh(request_row)
+        return request_row
+
+    if action != "approve":
+        return request_row
+
+    if request_row.status == "approved":
+        return request_row
+
+    request_row.status = "approved"
+    request_row.resolved_at = now
+
+    if request_row.type == "channel" and request_row.youtube_id:
+        session.execute(
+            text(
+                """
+                INSERT INTO channels(youtube_id, allowed, enabled, blocked, resolve_status)
+                VALUES (:youtube_id, 1, 1, 0, 'pending')
+                ON CONFLICT(youtube_id) DO UPDATE SET allowed = 1, blocked = 0, enabled = 1
+                """
+            ),
+            {"youtube_id": request_row.youtube_id},
+        )
+    elif request_row.type == "video" and request_row.youtube_id:
+        existing = session.execute(
+            text("SELECT id FROM video_approvals WHERE youtube_id = :youtube_id LIMIT 1"),
+            {"youtube_id": request_row.youtube_id},
+        ).first()
+        if not existing:
+            session.execute(
+                text(
+                    """
+                    INSERT INTO video_approvals(youtube_id, request_id)
+                    VALUES (:youtube_id, :request_id)
+                    """
+                ),
+                {"youtube_id": request_row.youtube_id, "request_id": request_row.id},
+            )
+
+    session.add(request_row)
+    session.commit()
+    session.refresh(request_row)
+    return request_row
+
+
 @router.post("/channel-allow", response_model=RequestRead, status_code=status.HTTP_201_CREATED)
 async def create_channel_allow_request(
     payload: RequestCreate,
@@ -103,3 +172,83 @@ async def create_video_allow_request(
     session.refresh(request_row)
     await _send_discord_request_notification(request_row, session)
     return request_row
+
+
+@router.get("", response_model=list[RequestQueueRead])
+def list_requests(
+    status_filter: str = Query(default="pending", alias="status"),
+    session: Session = Depends(get_session),
+) -> list[dict[str, object | None]]:
+    if status_filter not in {"pending", "approved", "denied"}:
+        raise HTTPException(status_code=400, detail="invalid_status")
+
+    rows = (
+        session.execute(
+            text(
+                """
+            SELECT
+                r.id,
+                r.type,
+                r.youtube_id,
+                r.created_at,
+                r.status,
+                r.kid_id AS requested_by_kid_id,
+                k.name AS requested_by_kid_name,
+                v.title AS video_title,
+                c.title AS channel_title,
+                vv.youtube_id AS video_channel_id
+            FROM requests r
+            LEFT JOIN kids k ON k.id = r.kid_id
+            LEFT JOIN videos v ON v.youtube_id = r.youtube_id
+            LEFT JOIN channels c ON c.youtube_id = r.youtube_id
+            LEFT JOIN videos vv ON vv.youtube_id = r.youtube_id
+            WHERE r.status = :status
+            ORDER BY r.created_at DESC, r.id DESC
+            """
+            ),
+            {"status": status_filter},
+        )
+        .mappings()
+        .all()
+    )
+
+    payload: list[dict[str, object | None]] = []
+    for row in rows:
+        youtube_id = row["youtube_id"]
+        request_type = row["type"]
+        channel_id = str(youtube_id) if request_type == "channel" and youtube_id else None
+        video_id = str(youtube_id) if request_type == "video" and youtube_id else None
+        payload.append(
+            {
+                "id": row["id"],
+                "type": request_type,
+                "channel_id": channel_id,
+                "channel_url": (
+                    f"https://www.youtube.com/channel/{channel_id}" if channel_id else None
+                ),
+                "video_id": video_id,
+                "video_url": (f"https://www.youtube.com/watch?v={video_id}" if video_id else None),
+                "title": row["video_title"] or row["channel_title"],
+                "requested_by_kid_id": row["requested_by_kid_id"],
+                "requested_by_kid_name": row["requested_by_kid_name"],
+                "created_at": row["created_at"],
+                "status": row["status"],
+            }
+        )
+    return payload
+
+
+@router.post("/{request_id}/approve", response_model=RequestRead)
+def approve_request(request_id: int, session: Session = Depends(get_session)) -> Request:
+    request_row = session.get(Request, request_id)
+    if not request_row:
+        raise HTTPException(status_code=404, detail="request_not_found")
+    return _apply_request_action(session, request_row, "approve")
+
+
+@router.post("/{request_id}/deny", response_model=RequestRead)
+def deny_request(request_id: int, session: Session = Depends(get_session)) -> Request:
+    request_row = session.get(Request, request_id)
+    if not request_row:
+        raise HTTPException(status_code=404, detail="request_not_found")
+    return _apply_request_action(session, request_row, "deny")

@@ -97,7 +97,7 @@ async function flushWatchLog(force = false) {
   try {
     await requestJson('/api/playback/watch/log', {
       method: 'POST',
-      body: JSON.stringify({ kid_id: kidId, video_id: youtubeId, seconds_delta: delta }),
+      body: JSON.stringify({ kid_id: kidId, video_id: youtubeId, seconds_delta: delta, is_playing: true }),
     });
   } catch {
     // no-op
@@ -201,7 +201,7 @@ async function loadVideo() {
     heartbeatHandle = window.setInterval(async () => {
       accrueWatchTime();
       await flushWatchLog(false);
-    }, 30000);
+    }, 12000);
 
     const yt = await loadYoutubeIframeApi();
     const player = new yt.Player('watch-player', {
@@ -248,6 +248,7 @@ window.addEventListener('pagehide', () => {
       kid_id: kidId,
       video_id: youtubeId,
       seconds_delta: delta,
+      is_playing: true,
     }));
   }
   if (heartbeatHandle) window.clearInterval(heartbeatHandle);
