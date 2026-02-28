@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
     # IMPORTANT: override in production with a strong random value.
     secret_key: str = Field(default="dev-only-change-me", alias="SECRET_KEY")
+    admin_pin: str | None = Field(default=None, alias="ADMIN_PIN")
 
     @property
     def sqlite_path(self) -> Path | None:

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlmodel import Session
 
+from app.core.config import settings
 from app.db.models import Kid
 from app.db.session import get_session
 from app.services.security import verify_pin_hash
@@ -64,6 +65,22 @@ def verify_pin(
     request.session["kid_id"] = pending_kid_id
     request.session.pop("pending_kid_id", None)
     return {"kid_id": pending_kid_id, "ok": True}
+
+
+@router.post("/admin-verify")
+def admin_verify(payload: VerifyPinPayload, request: Request) -> dict[str, bool]:
+    configured_pin = settings.admin_pin or ""
+    if not configured_pin:
+        request.session["is_admin"] = True
+        return {"ok": True, "no_pin": True}
+
+    plain_pin = payload.pin or ""
+    is_valid = verify_pin_hash(configured_pin, plain_pin) or configured_pin == plain_pin
+    if not is_valid:
+        raise HTTPException(status_code=403, detail="Invalid admin PIN")
+
+    request.session["is_admin"] = True
+    return {"ok": True}
 
 
 @router.post("/logout")
