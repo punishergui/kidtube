@@ -86,7 +86,11 @@ async def send_daily_stats(session: Session) -> None:
                 "title": f"Daily Stats · {kid_name}",
                 "color": 0x5F6DFF,
                 "fields": [
-                    {"name": "Total watch time", "value": f"{watched_minutes} minutes", "inline": True},
+                    {
+                        "name": "Total watch time",
+                        "value": f"{watched_minutes} minutes",
+                        "inline": True,
+                    },
                     {"name": "Top videos", "value": top_videos_text, "inline": False},
                     {"name": "Searches", "value": searches_text, "inline": False},
                 ],

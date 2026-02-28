@@ -159,7 +159,10 @@ async def refresh_enabled_channels() -> dict[str, int | list[dict[str, str | int
                         "error": str(exc),
                     }
                 )
-                logger.error("channel_sync_failed", extra={"channel_id": channel.id, "error": str(exc)})
+                logger.error(
+                    "channel_sync_failed",
+                    extra={"channel_id": channel.id, "error": str(exc)},
+                )
             finally:
                 session.add(channel)
 

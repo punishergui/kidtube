@@ -104,7 +104,9 @@ def set_admin_pin(payload: AdminPinPayload, request: Request) -> dict[str, bool]
 
     is_admin = bool(request.session.get('is_admin'))
     configured_pin = settings.admin_pin or ''
-    has_current_match = bool(configured_pin and verify_pin_hash(configured_pin, payload.current_pin))
+    has_current_match = bool(
+        configured_pin and verify_pin_hash(configured_pin, payload.current_pin)
+    )
 
     if configured_pin and not is_admin and not has_current_match:
         raise HTTPException(status_code=403, detail='Current admin PIN required')

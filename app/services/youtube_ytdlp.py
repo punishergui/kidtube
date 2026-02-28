@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def _normalize_record(item: dict[str, object]) -> dict[str, object]:
     published_at = None
     if isinstance(upload_date, str) and len(upload_date) == 8 and upload_date.isdigit():
         try:
-            dt = datetime.strptime(upload_date, "%Y%m%d").replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(upload_date, "%Y%m%d").replace(tzinfo=datetime.UTC)
             published_at = dt.isoformat().replace("+00:00", "Z")
         except ValueError:
             published_at = None

@@ -9,7 +9,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.db.paths import resolve_db_path
 
-
 ADMIN_PIN_FILE = Path("/data/admin_pin.json")
 
 

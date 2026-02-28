@@ -65,7 +65,9 @@ async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> Ch
                     'title': item.get('title'),
                     'thumbnail_url': item.get('thumbnail_url'),
                     'published_at': item.get('published_at') or '',
-                    'duration': str(item.get('duration')) if item.get('duration') is not None else None,
+                    'duration': (
+                        str(item.get('duration')) if item.get('duration') is not None else None
+                    ),
                 }
                 for item in sample_ydl
                 if item.get('video_id')
