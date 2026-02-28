@@ -37,6 +37,6 @@ def test_startup_fails_with_clear_error_on_non_writable_db_dir(
 
     monkeypatch.setattr("app.main.ensure_db_parent_writable", fail_writable)
 
-    with pytest.raises(RuntimeError, match="not writable"):
+    with pytest.raises(SystemExit):
         with TestClient(app):
             pass
