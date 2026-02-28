@@ -1,0 +1,96 @@
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
+
+from app.db.models import Category
+from app.db.session import get_session
+
+router = APIRouter()
+
+
+class CategoryCreate(BaseModel):
+    name: str
+    enabled: bool = True
+    daily_limit_minutes: int | None = Field(default=None, ge=0)
+
+
+class CategoryUpdate(BaseModel):
+    name: str | None = None
+    enabled: bool | None = None
+    daily_limit_minutes: int | None = Field(default=None, ge=0)
+
+
+class CategoryRead(BaseModel):
+    id: int
+    name: str
+    enabled: bool
+    daily_limit_minutes: int | None
+    created_at: datetime
+
+
+@router.get("", response_model=list[CategoryRead])
+def list_categories(session: Session = Depends(get_session)) -> list[Category]:
+    return session.exec(select(Category).order_by(Category.id)).all()
+
+
+@router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+def create_category(payload: CategoryCreate, session: Session = Depends(get_session)) -> Category:
+    existing_category = session.exec(select(Category).where(Category.name == payload.name)).first()
+    if existing_category:
+        raise HTTPException(status_code=409, detail="Category name must be unique")
+
+    category = Category.model_validate(payload)
+    session.add(category)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Category name must be unique") from None
+    session.refresh(category)
+    return category
+
+
+@router.patch("/{category_id}", response_model=CategoryRead)
+def patch_category(
+    category_id: int,
+    payload: CategoryUpdate,
+    session: Session = Depends(get_session),
+) -> Category:
+    category = session.get(Category, category_id)
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    updates = payload.model_dump(exclude_unset=True)
+    new_name = updates.get("name")
+    if new_name and new_name != category.name:
+        existing_category = session.exec(select(Category).where(Category.name == new_name)).first()
+        if existing_category:
+            raise HTTPException(status_code=409, detail="Category name must be unique")
+
+    for field, value in updates.items():
+        setattr(category, field, value)
+
+    session.add(category)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="Category name must be unique") from None
+    session.refresh(category)
+    return category
+
+
+@router.delete("/{category_id}", response_model=CategoryRead)
+def disable_category(category_id: int, session: Session = Depends(get_session)) -> Category:
+    category = session.get(Category, category_id)
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    category.enabled = False
+    session.add(category)
+    session.commit()
+    session.refresh(category)
+    return category
