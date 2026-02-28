@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from app.db.models import Channel
 from app.db.session import get_session
+from app.services.limits import assert_schedule_allowed
 from app.services.sync import store_videos
 from app.services.youtube import fetch_latest_videos, resolve_channel
 
@@ -160,7 +161,9 @@ def list_allowed_channels(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
-    del kid_id
+    if kid_id is not None:
+        assert_schedule_allowed(session, kid_id=kid_id, now=datetime.now(timezone.utc))  # noqa: UP017
+
     rows = session.execute(
         text(
             """
@@ -174,6 +177,30 @@ def list_allowed_channels(
     return [dict(row) for row in rows]
 
 
+
+
+@router.get('/youtube/{channel_youtube_id}')
+def channel_detail(
+    channel_youtube_id: str,
+    session: Session = Depends(get_session),
+) -> dict[str, object | None]:
+    row = session.execute(
+        text(
+            """
+            SELECT id, youtube_id, title, avatar_url, banner_url, category, category_id, input
+            FROM channels
+            WHERE youtube_id = :channel_youtube_id
+              AND enabled = 1
+              AND allowed = 1
+              AND blocked = 0
+            LIMIT 1
+            """
+        ),
+        {"channel_youtube_id": channel_youtube_id},
+    ).mappings().first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Channel not found")
+    return dict(row)
 @router.get('/{channel_youtube_id}/videos')
 def channel_videos(
     channel_youtube_id: str,
@@ -181,7 +208,9 @@ def channel_videos(
     limit: int = Query(default=30, ge=1, le=100),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
-    del kid_id
+    if kid_id is not None:
+        assert_schedule_allowed(session, kid_id=kid_id, now=datetime.now(timezone.utc))  # noqa: UP017
+
     rows = session.execute(
         text(
             """

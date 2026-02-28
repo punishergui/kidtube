@@ -73,6 +73,13 @@ def list_feed(
         if remaining_seconds is not None and remaining_seconds <= 0:
             return []
 
+    if kid_id is not None:
+        now = datetime.now(timezone.utc)  # noqa: UP017
+        if not is_in_any_schedule(session, kid_id=kid_id, now=now) or is_in_bedtime(
+            session, kid_id=kid_id, now=now
+        ):
+            return []
+
     query = text(
         """
         SELECT
@@ -119,7 +126,17 @@ def list_feed(
 
 
 @router.get("/latest-per-channel", response_model=list[FeedItem])
-def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem]:
+def latest_per_channel(
+    kid_id: int | None = Query(default=None),
+    session: Session = Depends(get_session),
+) -> list[FeedItem]:
+    if kid_id is not None:
+        now = datetime.now(timezone.utc)  # noqa: UP017
+        if not is_in_any_schedule(session, kid_id=kid_id, now=now) or is_in_bedtime(
+            session, kid_id=kid_id, now=now
+        ):
+            return []
+
     query = text(
         """
         SELECT
@@ -158,8 +175,16 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
 @router.get('/shorts', response_model=list[FeedItem])
 def list_shorts(
     limit: int = Query(default=20, ge=1, le=50),
+    kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
+    if kid_id is not None:
+        now = datetime.now(timezone.utc)  # noqa: UP017
+        if not is_in_any_schedule(session, kid_id=kid_id, now=now) or is_in_bedtime(
+            session, kid_id=kid_id, now=now
+        ):
+            return []
+
     shorts_enabled = session.execute(
         text("SELECT shorts_enabled FROM parent_settings WHERE id = 1")
     ).first()

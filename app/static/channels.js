@@ -17,14 +17,14 @@ function escapeHtml(value) { return String(value || '').replaceAll('&', '&amp;')
 function matchesFilter(channel) { if (activeFilter === 'whitelisted') return channel.allowed && !channel.blocked; if (activeFilter === 'blacklisted') return channel.blocked; if (activeFilter === 'disabled') return !channel.enabled; return true; }
 
 function renderCategories() {
-  categorySelect.innerHTML = '<option value="">Category (optional)</option>' + categories.filter((c) => c.enabled).map((category) => `<option value="${category.name}">${category.name}</option>`).join('');
+  categorySelect.innerHTML = '<option value="">Category (optional)</option>' + categories.filter((c) => c.enabled).map((category) => `<option value="${category.id}">${category.name}</option>`).join('');
   categoriesBody.innerHTML = categories.map((category) => `
     <article class="admin-card panel">
       <div class="admin-card-head"><h3>${escapeHtml(category.name)}</h3><span class="small">${category.enabled ? 'Enabled' : 'Disabled'}</span></div>
       <p class="small">Default limit: ${category.daily_limit_minutes ?? 'none'} minutes/day</p>
       <div class="preview-actions">
         <button class="btn-soft" data-toggle-category="${category.id}">${category.enabled ? 'Disable' : 'Enable'}</button>
-        <button class="btn-secondary" data-delete-category="${category.id}">Disable (soft delete)</button>
+        <button class="btn-secondary" data-delete-category="${category.id}">Delete/Archive</button>
       </div>
     </article>
   `).join('') || '<article class="empty-state">No categories yet.</article>';
@@ -37,18 +37,40 @@ function renderCategories() {
   }));
 
   categoriesBody.querySelectorAll('button[data-delete-category]').forEach((button) => button.addEventListener('click', async () => {
-    try { await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?hard_delete=true`, { method: 'DELETE' }); } catch (error) { if (String(error.message).includes('archive')) { await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?archive=true`, { method: 'DELETE' }); showToast('Category archived (in use).'); } else { throw error; } }
+    try {
+      await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?hard_delete=true`, { method: 'DELETE' });
+      showToast('Category deleted.');
+    } catch (error) {
+      if (String(error.message).includes('archive')) {
+        await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?archive=true`, { method: 'DELETE' });
+        showToast('Category archived (in use).');
+      } else {
+        throw error;
+      }
+    }
     await loadCategories();
   }));
 }
 
+function categoryDropdown(channel) {
+  const options = ['<option value="">No category</option>']
+    .concat(categories.map((category) => `<option value="${category.id}" ${channel.category_id === category.id ? 'selected' : ''}>${escapeHtml(category.name)}${category.enabled ? '' : ' (disabled)'}</option>`));
+  return `<select data-category-for="${channel.id}">${options.join('')}</select>`;
+}
+
 function row(channel) {
-  return `<article class="panel admin-card"><div class="admin-card-head"><h3>${channel.title || 'Untitled channel'}</h3><span class="small">${channel.youtube_id}</span></div><p class="small">Input: ${channel.input || '—'}</p><p class="small">Resolve: ${channel.resolve_status}${channel.resolve_error ? ` · ${channel.resolve_error}` : ''}</p><div class="switch-row"><label class="switch-field"><span>Allowed</span><input type="checkbox" data-id="${channel.id}" data-action="allowed" ${channel.allowed ? 'checked' : ''} /><span class="slider"></span></label><label class="switch-field"><span>Enabled</span><input type="checkbox" data-id="${channel.id}" data-action="enabled" ${channel.enabled ? 'checked' : ''} /><span class="slider"></span></label><label class="switch-field"><span>Blocked</span><input type="checkbox" data-id="${channel.id}" data-action="blocked" ${channel.blocked ? 'checked' : ''} /><span class="slider"></span></label></div><div class="reason-row"><input data-reason="${channel.id}" value="${channel.blocked_reason || ''}" placeholder="Blocked reason" /><button class="btn-soft" data-save-reason="${channel.id}">Save reason</button><button class="btn-secondary" data-delete="${channel.id}">Delete</button></div><p class="small">Last sync: ${formatDate(channel.last_sync)}</p></article>`;
+  return `<article class="panel admin-card"><div class="admin-card-head"><h3>${channel.title || 'Untitled channel'}</h3><span class="small">${channel.youtube_id}</span></div><p class="small">Input: ${channel.input || '—'}</p><p class="small">Resolve: ${channel.resolve_status}${channel.resolve_error ? ` · ${channel.resolve_error}` : ''}</p><label class="small">Category ${categoryDropdown(channel)}</label><div class="switch-row"><label class="switch-field"><span>Allowed</span><input type="checkbox" data-id="${channel.id}" data-action="allowed" ${channel.allowed ? 'checked' : ''} /><span class="slider"></span></label><label class="switch-field"><span>Enabled</span><input type="checkbox" data-id="${channel.id}" data-action="enabled" ${channel.enabled ? 'checked' : ''} /><span class="slider"></span></label><label class="switch-field"><span>Blocked</span><input type="checkbox" data-id="${channel.id}" data-action="blocked" ${channel.blocked ? 'checked' : ''} /><span class="slider"></span></label></div><div class="reason-row"><input data-reason="${channel.id}" value="${channel.blocked_reason || ''}" placeholder="Blocked reason" /><button class="btn-soft" data-save-reason="${channel.id}">Save reason</button><button class="btn-secondary" data-delete="${channel.id}">Delete</button></div><p class="small">Last sync: ${formatDate(channel.last_sync)}</p></article>`;
 }
 
 function renderChannels() {
   const channels = allChannels.filter(matchesFilter);
   body.innerHTML = channels.length ? channels.map(row).join('') : '<article class="panel empty-state">No channels for this filter.</article>';
+  body.querySelectorAll('select[data-category-for]').forEach((select) => select.addEventListener('change', async () => {
+    const id = Number(select.dataset.categoryFor);
+    const categoryId = Number(select.value || 0) || null;
+    await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify({ category_id: categoryId }) });
+    await loadChannels();
+  }));
   body.querySelectorAll('input[data-action]').forEach((input) => input.addEventListener('change', async () => {
     const id = Number(input.dataset.id);
     const action = input.dataset.action;
@@ -74,14 +96,14 @@ function renderLookupPreview(payload) {
 }
 
 async function submitFromPreview(blocked) {
-  const category = String(new FormData(form).get('category') || '').trim() || null;
-  const created = await requestJson('/api/channels', { method: 'POST', body: JSON.stringify({ input: latestLookup.query, category }) });
+  const categoryId = Number(String(new FormData(form).get('category') || '').trim()) || null;
+  const created = await requestJson('/api/channels', { method: 'POST', body: JSON.stringify({ input: latestLookup.query, category_id: categoryId }) });
   if (blocked) await requestJson(`/api/channels/${created.id}`, { method: 'PATCH', body: JSON.stringify({ blocked: true, allowed: false, blocked_reason: 'Blocked by admin review' }) });
   await loadChannels();
 }
 
 async function loadChannels() { allChannels = await requestJson('/api/channels'); renderChannels(); }
-async function loadCategories() { categories = await requestJson('/api/categories?include_disabled=true'); renderCategories(); }
+async function loadCategories() { categories = await requestJson('/api/categories?include_disabled=true'); renderCategories(); renderChannels(); }
 
 filters?.querySelectorAll('button[data-filter]').forEach((button) => button.addEventListener('click', () => {
   activeFilter = button.dataset.filter;

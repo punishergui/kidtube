@@ -61,6 +61,7 @@ def list_watch_logs(
             SELECT
                 wl.id,
                 wl.kid_id,
+                k.name AS kid_name,
                 wl.video_id,
                 wl.seconds_watched,
                 wl.created_at,
@@ -68,6 +69,7 @@ def list_watch_logs(
                 v.youtube_id AS video_youtube_id,
                 v.title AS video_title
             FROM watch_log wl
+            JOIN kids k ON k.id = wl.kid_id
             LEFT JOIN videos v ON v.id = wl.video_id
             WHERE (:kid_id IS NULL OR wl.kid_id = :kid_id)
             ORDER BY wl.created_at DESC, wl.id DESC

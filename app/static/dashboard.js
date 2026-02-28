@@ -1,4 +1,4 @@
-import { formatDate, requestJson, showToast } from '/static/app.js';
+import { requestJson, showToast } from '/static/app.js';
 
 const grid = document.getElementById('dashboard-grid');
 const latestGrid = document.getElementById('latest-channel-grid');
@@ -18,17 +18,34 @@ const searchResultsGrid = document.getElementById('search-results-grid');
 const allowedChannelGrid = document.getElementById('allowed-channel-grid');
 const shortsGrid = document.getElementById('shorts-grid');
 
-const categories = ['all', 'education', 'fun'];
 const queryParams = new URLSearchParams(window.location.search);
 
-const state = { items: [], latestPerChannel: [], kids: [], allowedChannels: [], shorts: [], category: 'all', kidId: null, pendingKidId: null, channelFilter: queryParams.get('channel_id') || null, offset: 0, limit: 30, hasMore: true, searchResults: [] };
+const state = {
+  items: [],
+  latestPerChannel: [],
+  kids: [],
+  allowedChannels: [],
+  shorts: [],
+  categories: [{ id: null, name: 'all', enabled: true }],
+  category: 'all',
+  kidId: null,
+  pendingKidId: null,
+  channelFilter: queryParams.get('channel_id') || null,
+  offset: 0,
+  limit: 30,
+  hasMore: true,
+  searchResults: [],
+};
 
 function setFeedVisible(visible) { categoryPanel.hidden = !visible; newAdventures.hidden = !visible; latestVideos.hidden = !visible; }
 function formatDuration(seconds) { if (!Number.isFinite(seconds) || seconds <= 0) return '5:00'; const mins = Math.floor(seconds / 60); const secs = seconds % 60; return `${mins}:${String(secs).padStart(2, '0')}`; }
-function normalizeCategory(item) { const value = String(item.channel_category || item.category || '').toLowerCase(); if (value.includes('education') || value.includes('science')) return 'education'; return 'fun'; }
+function normalizeCategory(item) { return String(item.channel_category || item.category || '').toLowerCase(); }
 function categoryMatches(item) { if (state.category !== 'all' && normalizeCategory(item) !== state.category) return false; if (state.channelFilter && String(item.channel_id) !== String(state.channelFilter)) return false; return true; }
 
-function renderCategories() { categoryPills.innerHTML = categories.map((category) => `<button class="pill ${category === state.category ? 'active' : ''}" data-category="${category}">${category[0].toUpperCase()}${category.slice(1)}</button>`).join(''); categoryPills.querySelectorAll('button[data-category]').forEach((button) => button.addEventListener('click', () => { state.category = button.dataset.category; renderCategories(); renderVideos(); })); }
+function renderCategories() {
+  categoryPills.innerHTML = state.categories.map((category) => `<button class="pill ${category.name === state.category ? 'active' : ''}" data-category="${category.name}">${category.name[0].toUpperCase()}${category.name.slice(1)}</button>`).join('');
+  categoryPills.querySelectorAll('button[data-category]').forEach((button) => button.addEventListener('click', () => { state.category = button.dataset.category; renderCategories(); renderVideos(); }));
+}
 function kidCard(kid) { const isActive = kid.id === state.kidId || kid.id === state.pendingKidId; const initials = kid.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase(); return `<button class="kid-chip ${isActive ? 'active' : ''}" data-kid-id="${kid.id}">${kid.avatar_url ? `<img class="kid-avatar" src="${kid.avatar_url}" alt="${kid.name}" />` : `<span class="kid-avatar kid-initials">${initials}</span>`}<strong>${kid.name}</strong></button>`; }
 
 function renderKids() { if (!state.kids.length) { kidSelector.innerHTML = '<article class="empty-state">No kid profiles yet.</article>'; return; } kidSelector.innerHTML = state.kids.map(kidCard).join(''); kidSelector.querySelectorAll('[data-kid-id]').forEach((button) => button.addEventListener('click', async () => { const payload = await requestJson('/api/session/kid', { method: 'POST', body: JSON.stringify({ kid_id: Number(button.dataset.kidId) }) }); state.pendingKidId = payload.pin_required ? payload.kid_id : null; state.kidId = payload.pin_required ? null : payload.kid_id; pinGate.hidden = !payload.pin_required; if (!payload.pin_required) await loadFeedData(); renderKids(); })); }
@@ -38,7 +55,9 @@ function renderVideos() {
   const visible = state.items.filter(categoryMatches);
   grid.innerHTML = visible.length ? visible.map((item) => card(item)).join('') : '<article class="panel empty-state">No videos yet.</article>';
   latestGrid.innerHTML = state.latestPerChannel.length ? state.latestPerChannel.map((item) => card(item)).join('') : '<article class="panel empty-state">No latest videos yet.</article>';
-  allowedChannelGrid.innerHTML = state.allowedChannels.length ? state.allowedChannels.map((channel) => `<a class="panel" href="/channel/${channel.youtube_id}"><p>${channel.title || channel.youtube_id}</p></a>`).join('') : '<article class="panel empty-state">No allowed channels.</article>';
+  allowedChannelGrid.innerHTML = state.allowedChannels.length
+    ? state.allowedChannels.map((channel) => `<a class="channel-chip panel" href="/channel/${channel.youtube_id}">${channel.avatar_url ? `<img class="channel-chip-avatar" src="${channel.avatar_url}" alt="${channel.title || channel.youtube_id}" />` : '<span class="channel-chip-avatar">📺</span>'}<span>${channel.title || channel.youtube_id}</span></a>`).join('')
+    : '<article class="panel empty-state">No allowed channels.</article>';
   shortsGrid.innerHTML = state.shorts.length ? state.shorts.map((item) => card(item, true)).join('') : '<article class="panel empty-state">No shorts right now.</article>';
 }
 
@@ -60,7 +79,7 @@ function renderSearchResults() {
     } else {
       await requestJson('/api/requests/video-allow', { method: 'POST', body: JSON.stringify({ youtube_id: button.dataset.requestVideo, kid_id: state.kidId }) });
     }
-    showToast('Request sent to parent');
+    showToast('Request sent');
   }));
 }
 
@@ -70,14 +89,24 @@ async function loadFeedData() {
   if (!state.kidId) { setFeedVisible(false); return; }
   pinGate.hidden = true; setFeedVisible(true); state.items = []; state.offset = 0; state.hasMore = true;
   [state.latestPerChannel, state.allowedChannels, state.shorts] = await Promise.all([
-    requestJson('/api/feed/latest-per-channel'),
+    requestJson(`/api/feed/latest-per-channel?kid_id=${state.kidId}`),
     requestJson(`/api/channels/allowed?kid_id=${state.kidId}`),
-    requestJson('/api/feed/shorts'),
+    requestJson(`/api/feed/shorts?kid_id=${state.kidId}`),
   ]);
   await loadMore();
 }
 
-async function loadDashboard() { const [kids, sessionState] = await Promise.all([requestJson('/api/kids'), requestJson('/api/session')]); state.kids = kids; state.kidId = sessionState.kid_id; state.pendingKidId = sessionState.pending_kid_id; pinGate.hidden = !state.pendingKidId; renderKids(); renderCategories(); await loadFeedData(); }
+async function loadDashboard() {
+  const [kids, sessionState, apiCategories] = await Promise.all([requestJson('/api/kids'), requestJson('/api/session'), requestJson('/api/categories')]);
+  state.kids = kids;
+  state.categories = [{ id: null, name: 'all', enabled: true }, ...apiCategories.map((c) => ({ id: c.id, name: c.name, enabled: c.enabled }))];
+  state.kidId = sessionState.kid_id;
+  state.pendingKidId = sessionState.pending_kid_id;
+  pinGate.hidden = !state.pendingKidId;
+  renderKids();
+  renderCategories();
+  await loadFeedData();
+}
 
 pinSubmit?.addEventListener('click', async () => { if (pinError) pinError.hidden = true; try { const payload = await requestJson('/api/session/kid/verify-pin', { method: 'POST', body: JSON.stringify({ pin: pinInput.value }) }); state.kidId = payload.kid_id; state.pendingKidId = null; pinInput.value = ''; renderKids(); await loadFeedData(); } catch { if (pinError) pinError.hidden = false; } });
 pinCancel?.addEventListener('click', () => { state.pendingKidId = null; pinGate.hidden = true; pinInput.value = ''; if (pinError) pinError.hidden = true; renderKids(); });

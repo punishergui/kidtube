@@ -176,7 +176,10 @@ Verification checklist:
 
 - `GET /api/search?q=...&kid_id=...` searches YouTube videos for kids, logs the query, and returns `duration_seconds` + `is_short` when available.
 - `GET /api/channels/allowed?kid_id=...` returns globally allowed channels.
-- `GET /api/channels/{channel_id}/videos?kid_id=...` returns latest videos for a channel.
+- `GET /api/channels/youtube/{channel_id}` returns kid-facing channel metadata for the channel page header.
+- `GET /api/channels/{channel_id}/videos?kid_id=...` returns latest videos for a channel and enforces kid schedule/bedtime when `kid_id` is provided.
 - `GET /api/logs/recent?kid_id=&limit=` returns joined watch logs including `kid_name`, channel/category names, and watched duration.
 - `PUT /api/kids/{kid_id}/pin` and `DELETE /api/kids/{kid_id}/pin` set/remove kid PINs. PINs are stored as SHA-256 hashes with app secret salt.
-- `GET /api/feed/shorts` returns short-form feed rows, controlled by `parent_settings.shorts_enabled`.
+- `GET /api/feed/shorts?kid_id=...` returns short-form feed rows, controlled by `parent_settings.shorts_enabled` and kid schedule checks.
+- `GET /api/feed/latest-per-channel?kid_id=...` returns one latest item per allowed channel with optional kid schedule checks.
+- `POST /api/playback/watch/log` accepts heartbeat watch deltas (`kid_id`, `video_id`, `seconds_delta`) for reliable watch logging during playback.

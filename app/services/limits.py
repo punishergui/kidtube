@@ -32,18 +32,21 @@ def _is_within_window(now_minutes: int, start_minutes: int, end_minutes: int) ->
 
 
 def is_in_any_schedule(session: Session, kid_id: int, now: datetime) -> bool:
+    day_of_week_py = now.weekday()
+    day_of_week_sun_first = (day_of_week_py + 1) % 7
     rows = session.execute(
         text(
             """
             SELECT start_time, end_time
             FROM kid_schedules
             WHERE kid_id = :kid_id
-              AND day_of_week = :day_of_week
+              AND day_of_week IN (:day_of_week_py, :day_of_week_sun_first)
             """
         ),
         {
             "kid_id": kid_id,
-            "day_of_week": now.weekday(),
+            "day_of_week_py": day_of_week_py,
+            "day_of_week_sun_first": day_of_week_sun_first,
         },
     ).all()
 
