@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.services.youtube import (
-    YouTubeResolveError,
     fetch_latest_videos,
     resolve_channel,
 )
@@ -39,26 +38,41 @@ class ChannelLookupResponse(BaseModel):
     error: str | None
 
 
-@router.get('', response_model=ChannelLookupResponse)
+@router.get("", response_model=ChannelLookupResponse)
 async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> ChannelLookupResponse:
     normalized = query.strip()
     try:
         metadata = await resolve_channel(normalized)
-        channel_id = metadata.get('channel_id')
+        if not metadata:
+            return ChannelLookupResponse(
+                query=normalized,
+                found=False,
+                channel=None,
+                sample_videos=[],
+                error=None,
+            )
+
+        channel_id = metadata.get("channel_id")
         if not channel_id:
-            raise YouTubeResolveError('Unable to resolve the channel from this query.')
+            return ChannelLookupResponse(
+                query=normalized,
+                found=False,
+                channel=None,
+                sample_videos=[],
+                error=None,
+            )
 
         sample = await fetch_latest_videos(channel_id, max_results=6)
 
         channel = ChannelLookupPreview(
             youtube_id=channel_id,
-            title=metadata.get('title'),
-            handle=metadata.get('handle'),
-            avatar_url=metadata.get('avatar_url'),
-            banner_url=metadata.get('banner_url'),
-            description=metadata.get('description'),
-            subscriber_count=metadata.get('subscriber_count'),
-            video_count=metadata.get('video_count'),
+            title=metadata.get("title"),
+            handle=metadata.get("handle"),
+            avatar_url=metadata.get("avatar_url"),
+            banner_url=metadata.get("banner_url"),
+            description=metadata.get("description"),
+            subscriber_count=metadata.get("subscriber_count"),
+            video_count=metadata.get("video_count"),
         )
         sample_videos = [ChannelLookupVideo(**item) for item in sample]
         return ChannelLookupResponse(
@@ -69,10 +83,4 @@ async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> Ch
             error=None,
         )
     except Exception as exc:
-        return ChannelLookupResponse(
-            query=normalized,
-            found=False,
-            channel=None,
-            sample_videos=[],
-            error=str(exc),
-        )
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

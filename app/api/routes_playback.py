@@ -36,21 +36,24 @@ def log_playback(
     payload: PlaybackLogPayload,
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
-    video = session.execute(
-        text(
-            """
+    video = (
+        session.execute(
+            text(
+                """
             SELECT v.id AS video_id, c.category_id AS category_id
             FROM videos v
             JOIN channels c ON c.id = v.channel_id
             WHERE v.youtube_id = :youtube_id
             LIMIT 1
             """
-        ),
-        {"youtube_id": payload.youtube_id},
-    ).mappings().first()
+            ),
+            {"youtube_id": payload.youtube_id},
+        )
+        .mappings()
+        .first()
+    )
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
-
 
     now = datetime.now(timezone.utc)  # noqa: UP017
     allowed, reason, _details = check_access(
@@ -80,18 +83,22 @@ def log_watch_heartbeat(
     payload: PlaybackHeartbeatPayload,
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
-    video = session.execute(
-        text(
-            """
+    video = (
+        session.execute(
+            text(
+                """
             SELECT v.id AS video_id, c.category_id AS category_id
             FROM videos v
             JOIN channels c ON c.id = v.channel_id
             WHERE v.youtube_id = :youtube_id
             LIMIT 1
             """
-        ),
-        {"youtube_id": payload.video_id},
-    ).mappings().first()
+            ),
+            {"youtube_id": payload.video_id},
+        )
+        .mappings()
+        .first()
+    )
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
@@ -123,7 +130,10 @@ def log_watch_heartbeat(
     ).first()
     if most_recent and most_recent[0]:
         raw_then = most_recent[0]
-        then = raw_then if isinstance(raw_then, datetime) else datetime.fromisoformat(str(raw_then).replace("Z", "+00:00"))
+        if isinstance(raw_then, datetime):
+            then = raw_then
+        else:
+            then = datetime.fromisoformat(str(raw_then).replace("Z", "+00:00"))
         if (now - then).total_seconds() < 8:
             return {"ok": True}
 
@@ -133,7 +143,9 @@ def log_watch_heartbeat(
         kid_id=payload.kid_id,
         video_id=video["video_id"],
         seconds_watched=seconds_delta,
-        category_id=payload.category_id if payload.category_id is not None else video["category_id"],
+        category_id=(
+            payload.category_id if payload.category_id is not None else video["category_id"]
+        ),
         started_at=payload.started_at or now,
     )
     session.add(watch_log)

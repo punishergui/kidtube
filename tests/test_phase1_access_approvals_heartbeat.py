@@ -37,7 +37,9 @@ def test_check_access_daily_limit_reached(tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)  # noqa: UP017
     with Session(engine) as session:
         kid = Kid(name="A", daily_limit_minutes=1)
-        channel = Channel(youtube_id="UCLIM", allowed=True, enabled=True, blocked=False, resolve_status="ok")
+        channel = Channel(
+            youtube_id="UCLIM", allowed=True, enabled=True, blocked=False, resolve_status="ok"
+        )
         session.add(kid)
         session.add(channel)
         session.commit()
@@ -123,14 +125,26 @@ def test_check_access_pending_request_blocks_video(tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)  # noqa: UP017
     with Session(engine) as session:
         kid = Kid(name="D")
-        channel = Channel(youtube_id="UCPEND", allowed=False, enabled=True, blocked=False, resolve_status="ok")
+        channel = Channel(
+            youtube_id="UCPEND", allowed=False, enabled=True, blocked=False, resolve_status="ok"
+        )
         session.add(kid)
         session.add(channel)
         session.commit()
         session.refresh(kid)
         session.refresh(channel)
-        session.add(Video(youtube_id="vid-pending-1", channel_id=channel.id, title="Pending video", thumbnail_url="https://img", published_at=now))
-        session.add(Request(type="video", youtube_id="vid-pending-1", kid_id=kid.id, status="pending"))
+        session.add(
+            Video(
+                youtube_id="vid-pending-1",
+                channel_id=channel.id,
+                title="Pending video",
+                thumbnail_url="https://img",
+                published_at=now,
+            )
+        )
+        session.add(
+            Request(type="video", youtube_id="vid-pending-1", kid_id=kid.id, status="pending")
+        )
         session.commit()
 
         allowed, reason, _details = check_access(session, kid.id, video_id="vid-pending-1")
@@ -146,13 +160,23 @@ def test_check_access_blocked_channel(tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)  # noqa: UP017
     with Session(engine) as session:
         kid = Kid(name="E")
-        channel = Channel(youtube_id="UCBLOCK", allowed=True, enabled=True, blocked=True, resolve_status="ok")
+        channel = Channel(
+            youtube_id="UCBLOCK", allowed=True, enabled=True, blocked=True, resolve_status="ok"
+        )
         session.add(kid)
         session.add(channel)
         session.commit()
         session.refresh(kid)
         session.refresh(channel)
-        session.add(Video(youtube_id="vid-blocked-1", channel_id=channel.id, title="Blocked video", thumbnail_url="https://img", published_at=now))
+        session.add(
+            Video(
+                youtube_id="vid-blocked-1",
+                channel_id=channel.id,
+                title="Blocked video",
+                thumbnail_url="https://img",
+                published_at=now,
+            )
+        )
         session.commit()
 
         allowed, reason, _details = check_access(session, kid.id, video_id="vid-blocked-1")
@@ -168,25 +192,41 @@ def test_approvals_endpoints_and_heartbeat(tmp_path: Path) -> None:
     now = datetime.now(timezone.utc)  # noqa: UP017
     with Session(engine) as session:
         kid = Kid(name="Finn")
-        channel = Channel(youtube_id="UCAPI1", allowed=False, enabled=True, blocked=False, resolve_status="ok")
+        channel = Channel(
+            youtube_id="UCAPI1", allowed=False, enabled=True, blocked=False, resolve_status="ok"
+        )
         session.add(kid)
         session.add(channel)
         session.commit()
         session.refresh(kid)
         session.refresh(channel)
-        video = Video(youtube_id="vid-api-1", channel_id=channel.id, title="API Video", thumbnail_url="https://img", published_at=now)
+        video = Video(
+            youtube_id="vid-api-1",
+            channel_id=channel.id,
+            title="API Video",
+            thumbnail_url="https://img",
+            published_at=now,
+        )
         session.add(video)
         session.commit()
         session.refresh(video)
 
     try:
         with _client_for_engine(engine) as client:
-            create_req = client.post("/api/requests/channel-allow", json={"youtube_id": "UCAPI1", "kid_id": 1})
+            create_req = client.post(
+                "/api/requests/channel-allow", json={"youtube_id": "UCAPI1", "kid_id": 1}
+            )
             request_id = create_req.json()["id"]
             list_pending = client.get("/api/requests", params={"status": "pending"})
             approve = client.post(f"/api/requests/{request_id}/approve")
-            heartbeat1 = client.post("/api/playback/watch/log", json={"kid_id": 1, "video_id": "vid-api-1", "seconds_delta": 12})
-            heartbeat2 = client.post("/api/playback/watch/log", json={"kid_id": 1, "video_id": "vid-api-1", "seconds_delta": 12})
+            heartbeat1 = client.post(
+                "/api/playback/watch/log",
+                json={"kid_id": 1, "video_id": "vid-api-1", "seconds_delta": 12},
+            )
+            heartbeat2 = client.post(
+                "/api/playback/watch/log",
+                json={"kid_id": 1, "video_id": "vid-api-1", "seconds_delta": 12},
+            )
     finally:
         app.dependency_overrides.pop(get_session, None)
 
@@ -198,8 +238,12 @@ def test_approvals_endpoints_and_heartbeat(tmp_path: Path) -> None:
     assert heartbeat2.status_code == 200
 
     with Session(engine) as session:
-        channel_allowed = session.execute(text("SELECT allowed FROM channels WHERE youtube_id = 'UCAPI1' LIMIT 1")).one()[0]
-        log_count = session.execute(text("SELECT COUNT(*) FROM watch_log WHERE kid_id = 1")).one()[0]
+        channel_allowed = session.execute(
+            text("SELECT allowed FROM channels WHERE youtube_id = 'UCAPI1' LIMIT 1")
+        ).one()[0]
+        log_count = session.execute(text("SELECT COUNT(*) FROM watch_log WHERE kid_id = 1")).one()[
+            0
+        ]
 
     assert int(channel_allowed) == 1
     assert int(log_count) == 1

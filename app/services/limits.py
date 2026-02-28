@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -17,8 +17,12 @@ ACCESS_REASON_SHORTS_DISABLED = "shorts_disabled"
 
 
 def _utc_day_bounds(now: datetime) -> tuple[datetime, datetime]:
-    now_utc = now.astimezone(timezone.utc) if now.tzinfo else now.replace(  # noqa: UP017
-        tzinfo=timezone.utc  # noqa: UP017
+    now_utc = (
+        now.astimezone(UTC)
+        if now.tzinfo
+        else now.replace(  # noqa: UP017
+            tzinfo=timezone.utc  # noqa: UP017
+        )
     )
     day_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
@@ -243,9 +247,10 @@ def check_access(
 
     resolved = None
     if video_id:
-        resolved = session.execute(
-            text(
-                """
+        resolved = (
+            session.execute(
+                text(
+                    """
                 SELECT
                     v.title AS video_title,
                     v.is_short AS video_is_short,
@@ -258,9 +263,12 @@ def check_access(
                 WHERE v.youtube_id = :video_id
                 LIMIT 1
                 """
-            ),
-            {"video_id": video_id},
-        ).mappings().first()
+                ),
+                {"video_id": video_id},
+            )
+            .mappings()
+            .first()
+        )
         if resolved:
             if category_id is None:
                 category_id = resolved["category_id"]
@@ -270,7 +278,12 @@ def check_access(
                 title = resolved["video_title"]
             is_shorts = bool(resolved["video_is_short"])
 
-    remaining_seconds = remaining_seconds_for(session, kid_id=kid_id, category_id=category_id, now=now)
+    remaining_seconds = remaining_seconds_for(
+        session,
+        kid_id=kid_id,
+        category_id=category_id,
+        now=now,
+    )
     if remaining_seconds is not None and remaining_seconds <= 0:
         category_limit_exists = False
         if category_id is not None:

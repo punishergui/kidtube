@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import logging
-
-import httpx
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -183,9 +182,10 @@ def list_requests(
     if status_filter not in {"pending", "approved", "denied"}:
         raise HTTPException(status_code=400, detail="invalid_status")
 
-    rows = session.execute(
-        text(
-            """
+    rows = (
+        session.execute(
+            text(
+                """
             SELECT
                 r.id,
                 r.type,
@@ -205,9 +205,12 @@ def list_requests(
             WHERE r.status = :status
             ORDER BY r.created_at DESC, r.id DESC
             """
-        ),
-        {"status": status_filter},
-    ).mappings().all()
+            ),
+            {"status": status_filter},
+        )
+        .mappings()
+        .all()
+    )
 
     payload: list[dict[str, object | None]] = []
     for row in rows:
@@ -220,9 +223,11 @@ def list_requests(
                 "id": row["id"],
                 "type": request_type,
                 "channel_id": channel_id,
-                "channel_url": f"https://www.youtube.com/channel/{channel_id}" if channel_id else None,
+                "channel_url": (
+                    f"https://www.youtube.com/channel/{channel_id}" if channel_id else None
+                ),
                 "video_id": video_id,
-                "video_url": f"https://www.youtube.com/watch?v={video_id}" if video_id else None,
+                "video_url": (f"https://www.youtube.com/watch?v={video_id}" if video_id else None),
                 "title": row["video_title"] or row["channel_title"],
                 "requested_by_kid_id": row["requested_by_kid_id"],
                 "requested_by_kid_name": row["requested_by_kid_name"],

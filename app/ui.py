@@ -4,10 +4,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.db.models import Kid
@@ -80,51 +79,49 @@ def ui_dashboard(request: Request) -> HTMLResponse | RedirectResponse:
     )
 
 
-@router.get('/admin', response_class=HTMLResponse)
+@router.get("/admin", response_class=HTMLResponse)
 def ui_admin_home(request: Request) -> HTMLResponse:
-    return render_page(request, 'admin.html', page='admin', nav_mode='admin')
+    return render_page(request, "admin.html", page="admin", nav_mode="admin")
 
 
-@router.get('/admin/channels', response_class=HTMLResponse)
+@router.get("/admin/channels", response_class=HTMLResponse)
 def ui_admin_channels(request: Request) -> HTMLResponse:
-    return render_page(request, 'channels.html', page='channels', nav_mode='admin')
+    return render_page(request, "channels.html", page="channels", nav_mode="admin")
 
 
-
-
-@router.get('/admin/approvals', response_class=HTMLResponse)
+@router.get("/admin/approvals", response_class=HTMLResponse)
 def ui_admin_approvals(request: Request) -> HTMLResponse:
-    return render_page(request, 'approvals.html', page='approvals', nav_mode='admin')
+    return render_page(request, "approvals.html", page="approvals", nav_mode="admin")
 
 
-@router.get('/admin/kids', response_class=HTMLResponse)
+@router.get("/admin/kids", response_class=HTMLResponse)
 def ui_admin_kids(request: Request) -> HTMLResponse:
-    return render_page(request, 'kids.html', page='kids', nav_mode='admin')
+    return render_page(request, "kids.html", page="kids", nav_mode="admin")
 
 
-@router.get('/admin/sync', response_class=HTMLResponse)
+@router.get("/admin/sync", response_class=HTMLResponse)
 def ui_admin_sync(request: Request) -> HTMLResponse:
-    return render_page(request, 'sync.html', page='sync', nav_mode='admin')
+    return render_page(request, "sync.html", page="sync", nav_mode="admin")
 
 
-@router.get('/admin/stats', response_class=HTMLResponse)
+@router.get("/admin/stats", response_class=HTMLResponse)
 def ui_admin_stats(request: Request) -> HTMLResponse:
-    return render_page(request, 'stats.html', page='stats', nav_mode='admin')
+    return render_page(request, "stats.html", page="stats", nav_mode="admin")
 
 
-@router.get('/channels')
+@router.get("/channels")
 def ui_channels_redirect() -> RedirectResponse:
-    return RedirectResponse(url='/admin/channels', status_code=307)
+    return RedirectResponse(url="/admin/channels", status_code=307)
 
 
-@router.get('/kids')
+@router.get("/kids")
 def ui_kids_redirect() -> RedirectResponse:
-    return RedirectResponse(url='/admin/kids', status_code=307)
+    return RedirectResponse(url="/admin/kids", status_code=307)
 
 
-@router.get('/sync')
+@router.get("/sync")
 def ui_sync_redirect() -> RedirectResponse:
-    return RedirectResponse(url='/admin/sync', status_code=307)
+    return RedirectResponse(url="/admin/sync", status_code=307)
 
 
 @router.get("/watch/{youtube_id}", response_class=HTMLResponse, response_model=None)
@@ -163,7 +160,7 @@ def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectRespon
         page="watch",
         youtube_id=youtube_id,
         embed_origin=embed_origin,
-        nav_mode='kid',
+        nav_mode="kid",
     )
 
 
@@ -227,12 +224,12 @@ def ui_blocked_pending(request: Request) -> HTMLResponse | RedirectResponse:
     )
 
 
-@router.get('/channel/{channel_id}', response_class=HTMLResponse)
+@router.get("/channel/{channel_id}", response_class=HTMLResponse)
 def ui_channel(request: Request, channel_id: str) -> HTMLResponse:
     return render_page(
         request,
-        'channel.html',
-        page='channel',
+        "channel.html",
+        page="channel",
         channel_id=channel_id,
-        nav_mode='kid',
+        nav_mode="kid",
     )

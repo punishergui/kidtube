@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session
 
-from app.db.models import SearchLog
+from app.db.models import Kid, SearchLog
 from app.db.session import get_session
-from app.services.limits import ACCESS_REASON_PENDING_APPROVAL, check_access
 from app.services.youtube import search_videos
 
 router = APIRouter()
@@ -26,9 +24,6 @@ class SearchResult(BaseModel):
     published_at: str | None
     duration_seconds: int | None = None
     is_short: bool | None = None
-    access_state: str = "request"
-    blocked_reason: str | None = None
-    request_status: str | None = None
 
 
 @router.get("", response_model=list[SearchResult])
@@ -38,43 +33,31 @@ async def search(
     session: Session = Depends(get_session),
 ) -> list[dict[str, object]]:
     normalized = q.strip()
-    now = datetime.now(timezone.utc)  # noqa: UP017
-    allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
-    if not allowed:
+    kid = session.get(Kid, kid_id)
+    if not kid:
+        raise HTTPException(status_code=404, detail="Kid not found")
+
+    try:
+        results = await search_videos(normalized)
+    except Exception:
+        logger.debug("search_backend=api_failed", exc_info=True)
         return []
 
     session.add(SearchLog(kid_id=kid_id, query=normalized))
     session.commit()
-    try:
-        results = await search_videos(normalized)
-        enriched: list[dict[str, object]] = []
-        for item in results:
-            item_allowed, item_reason, details = check_access(
-                session,
-                kid_id=kid_id,
-                video_id=str(item["video_id"]),
-                channel_id=str(item["channel_id"]) if item.get("channel_id") else None,
-                is_shorts=bool(item.get("is_short")),
-                title=str(item.get("title") or ""),
-                now=now,
-            )
-            state = "play" if item_allowed else "blocked"
-            request_status = None
-            if item_reason == ACCESS_REASON_PENDING_APPROVAL:
-                request_status = str(details.get("request_status") or "none")
-                state = "request" if request_status == "none" else request_status
-            enriched.append(
-                {
-                    **item,
-                    "access_state": state,
-                    "blocked_reason": item_reason,
-                    "request_status": request_status,
-                }
-            )
-        return enriched
-    except Exception:
-        logger.debug("search_backend=api_failed", exc_info=True)
-        return []
+    return [
+        {
+            "video_id": item.get("video_id"),
+            "title": item.get("title"),
+            "channel_id": item.get("channel_id"),
+            "channel_title": item.get("channel_title"),
+            "thumbnail_url": item.get("thumbnail_url"),
+            "published_at": item.get("published_at"),
+            "duration_seconds": item.get("duration_seconds"),
+            "is_short": item.get("is_short"),
+        }
+        for item in results
+    ]
 
 
 @router.get("/logs")
@@ -83,9 +66,10 @@ def search_logs(
     limit: int = Query(default=50, ge=1, le=200),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
-    rows = session.execute(
-        text(
-            """
+    rows = (
+        session.execute(
+            text(
+                """
             SELECT sl.id, sl.kid_id, k.name AS kid_name, sl.query, sl.created_at
             FROM search_log sl
             JOIN kids k ON k.id = sl.kid_id
@@ -93,7 +77,10 @@ def search_logs(
             ORDER BY sl.created_at DESC, sl.id DESC
             LIMIT :limit
             """
-        ),
-        {"kid_id": kid_id, "limit": limit},
-    ).mappings().all()
+            ),
+            {"kid_id": kid_id, "limit": limit},
+        )
+        .mappings()
+        .all()
+    )
     return [dict(row) for row in rows]
