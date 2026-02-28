@@ -33,9 +33,9 @@ async def lifespan(app: FastAPI):
     if sqlite_path:
         try:
             ensure_db_parent_writable(sqlite_path)
-        except RuntimeError as exc:
+        except Exception as exc:
             logger.error("database startup check failed", extra={"error": str(exc)})
-            raise SystemExit(str(exc)) from exc
+            raise RuntimeError(str(exc)) from exc
 
     run_migrations(engine, Path(__file__).parent / "db" / "migrations")
     app.state.started_at = time.time()

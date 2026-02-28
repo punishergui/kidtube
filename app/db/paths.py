@@ -25,15 +25,15 @@ def ensure_db_parent_writable(db_path: Path) -> None:
 
     if parent == Path("/data") and not os.access(Path("/"), os.W_OK):
         raise RuntimeError(
-            "Database directory '/data' does not exist and cannot be created by the current user. "
-            "Create/chown the volume mount and restart."
+            "Database directory '/data' is not writable and cannot be created by the current user. "
+            "Fix volume ownership/permissions or set KIDTUBE_DB_PATH to a writable path."
         )
 
     try:
         parent.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         raise RuntimeError(
-            f"Failed to create database directory '{parent}'. "
+            f"Database directory '{parent}' is not writable. "
             "Fix volume ownership/permissions or set KIDTUBE_DB_PATH to a writable path."
         ) from exc
 
