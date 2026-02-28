@@ -23,9 +23,13 @@ jobs:
 
       - name: Smoke start + HTTP checks
         run: |
+          mkdir -p ./.data
+          export DATABASE_URL="sqlite:///$GITHUB_WORKSPACE/.data/kidtube.db"
+
           uvicorn app.main:app --host 127.0.0.1 --port 2018 &
           APP_PID=$!
+          trap 'kill $APP_PID' EXIT
+
           sleep 3
           curl -fsS http://127.0.0.1:2018/health
           curl -fsS http://127.0.0.1:2018/ > /dev/null
-          kill $APP_PID
