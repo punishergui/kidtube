@@ -339,3 +339,78 @@ def test_feed_hides_channels_in_disabled_categories(tmp_path: Path) -> None:
 
     assert filtered_enabled.status_code == 200
     assert [item["video_youtube_id"] for item in filtered_enabled.json()] == ["vid-enabled-cat"]
+
+
+def test_feed_returns_empty_when_kid_is_over_category_limit(tmp_path: Path) -> None:
+    db_path = tmp_path / "feed-kid-limits-test.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    now = datetime.now(timezone.utc)  # noqa: UP017
+
+    with Session(engine) as session:
+        fun = session.execute(text("SELECT id FROM categories WHERE name = 'fun'")).one()[0]
+        kid_id = session.execute(
+            text("INSERT INTO kids(name, daily_limit_minutes) VALUES ('Mia', 10)")
+        ).lastrowid
+
+        channel = Channel(
+            youtube_id="UCfunlimit000000000000000",
+            title="Fun Channel",
+            category="fun",
+            category_id=fun,
+            resolve_status="ok",
+            allowed=True,
+        )
+        session.add(channel)
+        session.commit()
+        session.refresh(channel)
+
+        session.add(
+            Video(
+                youtube_id="vid-fun-limit",
+                channel_id=channel.id,
+                title="Fun video",
+                thumbnail_url="https://img.example/fun.jpg",
+                published_at=now,
+            )
+        )
+        session.commit()
+
+        session.execute(
+            text(
+                """
+                INSERT INTO kid_category_limits(kid_id, category_id, daily_limit_minutes)
+                VALUES (:kid_id, :category_id, 1)
+                """
+            ),
+            {"kid_id": kid_id, "category_id": fun},
+        )
+        session.execute(
+            text(
+                """
+                INSERT INTO watch_log(
+                    kid_id, video_id, seconds_watched, category_id, started_at, created_at
+                )
+                SELECT :kid_id, v.id, 60, :category_id, :started_at, :created_at
+                FROM videos v
+                WHERE v.youtube_id = 'vid-fun-limit'
+                """
+            ),
+            {
+                "kid_id": kid_id,
+                "category_id": fun,
+                "started_at": now.isoformat(),
+                "created_at": now.isoformat(),
+            },
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            response = client.get(f"/api/feed?kid_id={kid_id}&category=fun")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 200
+    assert response.json() == []

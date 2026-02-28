@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
+from app.services.limits import remaining_seconds_for
 
 router = APIRouter()
 
@@ -34,8 +35,35 @@ def list_feed(
     offset: int = Query(default=0, ge=0),
     cursor: str | None = Query(default=None),
 ) -> list[FeedItem]:
-    del kid_id
     del cursor
+
+    category_id = None
+    if category is not None:
+        category_row = session.execute(
+            text(
+                """
+                SELECT id
+                FROM categories
+                WHERE name = :category
+                  AND enabled = 1
+                LIMIT 1
+                """
+            ),
+            {"category": category},
+        ).first()
+        if not category_row:
+            return []
+        category_id = int(category_row[0])
+
+    if kid_id is not None:
+        remaining_seconds = remaining_seconds_for(
+            session,
+            kid_id=kid_id,
+            category_id=category_id,
+            now=datetime.now(timezone.utc),  # noqa: UP017
+        )
+        if remaining_seconds is not None and remaining_seconds <= 0:
+            return []
 
     query = text(
         """
@@ -60,16 +88,8 @@ def list_feed(
           AND (
             :category IS NULL
             OR (
-              EXISTS(
-                SELECT 1
-                FROM categories cf
-                WHERE cf.name = :category
-                  AND cf.enabled = 1
-              )
-              AND (
-                (c.category_id IS NOT NULL AND cat.name = :category AND cat.enabled = 1)
-                OR (c.category_id IS NULL AND c.category = :category)
-              )
+              (c.category_id IS NOT NULL AND cat.name = :category AND cat.enabled = 1)
+              OR (c.category_id IS NULL AND c.category = :category)
             )
           )
         ORDER BY v.published_at DESC
