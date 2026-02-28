@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     )
     sync_max_videos_per_channel: int = Field(default=15, alias="SYNC_MAX_VIDEOS_PER_CHANNEL")
     http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
+    # IMPORTANT: override in production with a strong random value.
+    secret_key: str = Field(default="dev-only-change-me", alias="SECRET_KEY")
 
     @property
     def sqlite_path(self) -> Path | None:

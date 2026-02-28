@@ -338,6 +338,15 @@ td:last-child { border-radius: 0 12px 12px 0; }
   gap: var(--space-3);
 }
 
+.pin-gate {
+  margin-top: 0.75rem;
+}
+
+.pin-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .kid-chip {
   border: 0;
   width: 100%;

@@ -5,6 +5,12 @@ const latestGrid = document.getElementById('latest-channel-grid');
 const kidSelector = document.getElementById('kid-selector');
 const categoryPills = document.getElementById('category-pills');
 const moreButton = document.getElementById('see-more-btn');
+const pinGate = document.getElementById('pin-gate');
+const pinInput = document.getElementById('pin-input');
+const pinSubmit = document.getElementById('pin-submit');
+const categoryPanel = document.getElementById('category-panel');
+const newAdventures = document.getElementById('new-adventures');
+const latestVideos = document.getElementById('latest-videos');
 
 const categories = ['all', 'education', 'fun'];
 const queryParams = new URLSearchParams(window.location.search);
@@ -12,13 +18,21 @@ const queryParams = new URLSearchParams(window.location.search);
 const state = {
   items: [],
   latestPerChannel: [],
-  category: localStorage.getItem('kidtube-category') || 'all',
-  kidId: Number(localStorage.getItem('kidtube-active-kid')) || null,
+  kids: [],
+  category: 'all',
+  kidId: null,
+  pendingKidId: null,
   channelFilter: queryParams.get('channel_id') || null,
   offset: 0,
   limit: 30,
   hasMore: true,
 };
+
+function setFeedVisible(visible) {
+  categoryPanel.hidden = !visible;
+  newAdventures.hidden = !visible;
+  latestVideos.hidden = !visible;
+}
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return '5:00';
@@ -50,7 +64,6 @@ function renderCategories() {
   categoryPills.querySelectorAll('button[data-category]').forEach((button) => {
     button.addEventListener('click', () => {
       state.category = button.dataset.category;
-      localStorage.setItem('kidtube-category', state.category);
       renderCategories();
       renderVideos();
     });
@@ -58,7 +71,7 @@ function renderCategories() {
 }
 
 function kidCard(kid) {
-  const isActive = kid.id === state.kidId;
+  const isActive = kid.id === state.kidId || kid.id === state.pendingKidId;
   const initials = kid.name
     .split(' ')
     .map((part) => part[0])
@@ -73,29 +86,36 @@ function kidCard(kid) {
       </span>
       <span class="kid-meta">
         <strong>${kid.name}</strong>
-        <span class="left-pill">${kid.daily_limit_minutes || 60}m left</span>
       </span>
     </button>
   `;
 }
 
-function renderKids(kids) {
-  if (!kids.length) {
+function renderKids() {
+  if (!state.kids.length) {
     kidSelector.innerHTML = '<article class="empty-state">No kid profiles yet. Visit the Kids page to add one.</article>';
     return;
   }
 
-  if (!state.kidId || !kids.find((kid) => kid.id === state.kidId)) {
-    state.kidId = kids[0].id;
-  }
-
-  kidSelector.innerHTML = kids.map(kidCard).join('');
+  kidSelector.innerHTML = state.kids.map(kidCard).join('');
 
   kidSelector.querySelectorAll('[data-kid-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.kidId = Number(button.dataset.kidId);
-      localStorage.setItem('kidtube-active-kid', String(state.kidId));
-      renderKids(kids);
+    button.addEventListener('click', async () => {
+      try {
+        const payload = await requestJson('/api/session/kid', {
+          method: 'POST',
+          body: JSON.stringify({ kid_id: Number(button.dataset.kidId) }),
+        });
+        state.pendingKidId = payload.pin_required ? payload.kid_id : null;
+        state.kidId = payload.pin_required ? null : payload.kid_id;
+        pinGate.hidden = !payload.pin_required;
+        renderKids();
+        if (!payload.pin_required) {
+          await loadFeedData();
+        }
+      } catch (error) {
+        showToast(`Unable to choose profile: ${error.message}`, 'error');
+      }
     });
   });
 }
@@ -153,17 +173,53 @@ async function loadMore() {
   renderVideos();
 }
 
+async function loadFeedData() {
+  if (!state.kidId) {
+    setFeedVisible(false);
+    return;
+  }
+
+  pinGate.hidden = true;
+  setFeedVisible(true);
+  state.items = [];
+  state.offset = 0;
+  state.hasMore = true;
+
+  state.latestPerChannel = await requestJson('/api/feed/latest-per-channel');
+  await loadMore();
+}
+
 async function loadDashboard() {
   try {
-    const [kids, latest] = await Promise.all([requestJson('/api/kids'), requestJson('/api/feed/latest-per-channel')]);
-    state.latestPerChannel = latest;
-    renderKids(kids);
+    const [kids, sessionState] = await Promise.all([requestJson('/api/kids'), requestJson('/api/session')]);
+    state.kids = kids;
+    state.kidId = sessionState.kid_id;
+    state.pendingKidId = sessionState.pending_kid_id;
+
+    pinGate.hidden = !state.pendingKidId;
+    renderKids();
     renderCategories();
-    await loadMore();
+    await loadFeedData();
   } catch (error) {
     showToast(`Unable to load feed: ${error.message}`, 'error');
   }
 }
+
+pinSubmit?.addEventListener('click', async () => {
+  try {
+    const payload = await requestJson('/api/session/kid/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify({ pin: pinInput.value }),
+    });
+    state.kidId = payload.kid_id;
+    state.pendingKidId = null;
+    pinInput.value = '';
+    renderKids();
+    await loadFeedData();
+  } catch (error) {
+    showToast(`Invalid PIN: ${error.message}`, 'error');
+  }
+});
 
 moreButton?.addEventListener('click', async () => {
   moreButton.disabled = true;

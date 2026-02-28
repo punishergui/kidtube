@@ -14,16 +14,23 @@
     <h2>Choose a Kid Profile</h2>
   </div>
   <div id="kid-selector" class="kid-selector"></div>
+  <div id="pin-gate" class="pin-gate" hidden>
+    <p class="small">Enter PIN to continue</p>
+    <div class="pin-row">
+      <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" />
+      <button id="pin-submit" class="btn-primary" type="button">Unlock</button>
+    </div>
+  </div>
 </section>
 
-<section class="panel category-panel">
+<section id="category-panel" class="panel category-panel">
   <div class="section-head">
     <h2>Categories</h2>
   </div>
   <div id="category-pills" class="category-pills" role="tablist" aria-label="Video categories"></div>
 </section>
 
-<section class="video-section">
+<section id="new-adventures" class="video-section">
   <div class="section-head">
     <h2>New Adventures</h2>
   </div>
@@ -33,7 +40,7 @@
   </div>
 </section>
 
-<section class="video-section">
+<section id="latest-videos" class="video-section">
   <div class="section-head">
     <h2>Latest per channel</h2>
   </div>
