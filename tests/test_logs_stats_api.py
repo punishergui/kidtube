@@ -32,14 +32,15 @@ def test_search_log_write_and_list(tmp_path: Path) -> None:
         session.add(kid)
         session.commit()
         session.refresh(kid)
+        kid_id = kid.id
 
     try:
         with _client_for_engine(engine) as client:
             create_response = client.post(
                 '/api/logs/search',
-                json={'kid_id': kid.id, 'query': 'cats'},
+                json={'kid_id': kid_id, 'query': 'cats'},
             )
-            list_response = client.get('/api/logs/search', params={'kid_id': kid.id, 'limit': 5})
+            list_response = client.get('/api/logs/search', params={'kid_id': kid_id, 'limit': 5})
     finally:
         app.dependency_overrides.pop(get_session, None)
 
@@ -48,7 +49,7 @@ def test_search_log_write_and_list(tmp_path: Path) -> None:
     assert list_response.status_code == 200
     rows = list_response.json()
     assert len(rows) == 1
-    assert rows[0]['kid_id'] == kid.id
+    assert rows[0]['kid_id'] == kid_id
     assert rows[0]['query'] == 'cats'
 
 
@@ -134,16 +135,17 @@ def test_stats_returns_category_aggregates(tmp_path: Path) -> None:
             },
         )
         session.commit()
+        kid_id = kid.id
 
     try:
         with _client_for_engine(engine) as client:
-            response = client.get('/api/stats', params={'kid_id': kid.id})
+            response = client.get('/api/stats', params={'kid_id': kid_id})
     finally:
         app.dependency_overrides.pop(get_session, None)
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload['kid_id'] == kid.id
+    assert payload['kid_id'] == kid_id
     assert payload['today_seconds'] == 40
     assert payload['lifetime_seconds'] == 120
     assert len(payload['categories']) == 1
