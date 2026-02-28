@@ -247,6 +247,7 @@ def test_video_lookup_allows_active_bonus_time_then_blocks_at_total_limit(tmp_pa
         session.add(video)
         session.commit()
         session.refresh(video)
+        video_id = video.id
 
         expires_at = (now.replace(hour=23, minute=59, second=59, microsecond=0)).isoformat()
         session.execute(
@@ -270,7 +271,7 @@ def test_video_lookup_allows_active_bonus_time_then_blocks_at_total_limit(tmp_pa
             ),
             {
                 "kid_id": kid_id,
-                "video_id": video.id,
+                "video_id": video_id,
                 "started_at": now.isoformat(),
                 "created_at": now.isoformat(),
             },
@@ -297,7 +298,7 @@ def test_video_lookup_allows_active_bonus_time_then_blocks_at_total_limit(tmp_pa
             ),
             {
                 "kid_id": kid_id,
-                "video_id": video.id,
+                "video_id": video_id,
                 "started_at": now.isoformat(),
                 "created_at": now.isoformat(),
             },
