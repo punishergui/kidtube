@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from app.core.config import settings
 from app.db.models import Kid
 from app.db.session import get_session
-from app.services.security import verify_pin_hash
+from app.services.security import hash_pin, verify_pin_hash
 
 router = APIRouter()
+ADMIN_PIN_FILE = Path('/data/admin_pin.json')
 
 
 class SelectKidPayload(BaseModel):
@@ -18,6 +22,11 @@ class SelectKidPayload(BaseModel):
 
 class VerifyPinPayload(BaseModel):
     pin: str
+
+
+class AdminPinPayload(BaseModel):
+    new_pin: str = Field(min_length=4, max_length=6)
+    current_pin: str = ""
 
 
 @router.get("")
@@ -81,6 +90,42 @@ def admin_verify(payload: VerifyPinPayload, request: Request) -> dict[str, bool]
 
     request.session["is_admin"] = True
     return {"ok": True}
+
+
+@router.get('/admin-pin')
+def admin_pin_status() -> dict[str, bool]:
+    return {"is_set": bool(settings.admin_pin)}
+
+
+@router.post('/admin-pin')
+def set_admin_pin(payload: AdminPinPayload, request: Request) -> dict[str, bool]:
+    if not payload.new_pin.isdigit() or len(payload.new_pin) < 4 or len(payload.new_pin) > 6:
+        raise HTTPException(status_code=400, detail='PIN must be 4-6 digits')
+
+    is_admin = bool(request.session.get('is_admin'))
+    configured_pin = settings.admin_pin or ''
+    has_current_match = bool(configured_pin and verify_pin_hash(configured_pin, payload.current_pin))
+
+    if configured_pin and not is_admin and not has_current_match:
+        raise HTTPException(status_code=403, detail='Current admin PIN required')
+
+    hashed = hash_pin(payload.new_pin)
+    ADMIN_PIN_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ADMIN_PIN_FILE.write_text(json.dumps({'admin_pin': hashed}), encoding='utf-8')
+    settings.admin_pin = hashed
+    request.session['is_admin'] = True
+    return {'ok': True}
+
+
+@router.delete('/admin-pin')
+def delete_admin_pin(request: Request) -> dict[str, bool]:
+    if not request.session.get('is_admin'):
+        raise HTTPException(status_code=403, detail='Admin session required')
+
+    if ADMIN_PIN_FILE.exists():
+        ADMIN_PIN_FILE.unlink()
+    settings.admin_pin = None
+    return {'ok': True}
 
 
 @router.post("/logout")

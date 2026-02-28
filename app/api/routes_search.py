@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
@@ -7,12 +8,15 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session
 
+from app.core.config import settings
 from app.db.models import SearchLog
 from app.db.session import get_session
 from app.services.limits import is_in_any_schedule, is_in_bedtime
 from app.services.youtube import search_videos
+from app.services.youtube_ytdlp import search_youtube as search_youtube_ytdlp
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class SearchResult(BaseModel):
@@ -42,7 +46,30 @@ async def search(
     session.add(SearchLog(kid_id=kid_id, query=normalized))
     session.commit()
 
-    return await search_videos(normalized)
+    if settings.youtube_api_key:
+        try:
+            api_results = await search_videos(normalized)
+            logger.debug("search_backend=api")
+            return api_results
+        except Exception:
+            logger.debug("search_backend=api_failed_fallback_to_ytdlp", exc_info=True)
+
+    fallback = await search_youtube_ytdlp(normalized)
+    logger.debug("search_backend=ytdlp")
+    return [
+        {
+            "video_id": item.get("video_id"),
+            "title": item.get("title") or "Untitled",
+            "channel_id": item.get("channel_id"),
+            "channel_title": item.get("channel_title") or "Unknown channel",
+            "thumbnail_url": item.get("thumbnail_url") or "",
+            "published_at": item.get("published_at"),
+            "duration_seconds": item.get("duration"),
+            "is_short": bool(item.get("duration") is not None and int(item["duration"]) <= 60),
+        }
+        for item in fallback
+        if item.get("video_id")
+    ]
 
 
 @router.get("/logs")
