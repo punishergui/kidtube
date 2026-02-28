@@ -38,30 +38,32 @@ class ChannelLookupResponse(BaseModel):
     error: str | None
 
 
+def _not_found_response(query: str, error: str | None = None) -> ChannelLookupResponse:
+    return ChannelLookupResponse(
+        query=query,
+        found=False,
+        channel=None,
+        sample_videos=[],
+        error=error,
+    )
+
+
 @router.get("", response_model=ChannelLookupResponse)
 async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> ChannelLookupResponse:
     normalized = query.strip()
     try:
         metadata = await resolve_channel(normalized)
-        if not metadata:
-            return ChannelLookupResponse(
-                query=normalized,
-                found=False,
-                channel=None,
-                sample_videos=[],
-                error=None,
-            )
+    except Exception as exc:
+        return _not_found_response(normalized, error=str(exc))
 
-        channel_id = metadata.get("channel_id")
-        if not channel_id:
-            return ChannelLookupResponse(
-                query=normalized,
-                found=False,
-                channel=None,
-                sample_videos=[],
-                error=None,
-            )
+    if not metadata:
+        return _not_found_response(normalized)
 
+    channel_id = metadata.get("channel_id")
+    if not channel_id:
+        return _not_found_response(normalized)
+
+    try:
         sample = await fetch_latest_videos(channel_id, max_results=6)
 
         channel = ChannelLookupPreview(
@@ -83,10 +85,4 @@ async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> Ch
             error=None,
         )
     except Exception as exc:
-        return ChannelLookupResponse(
-            query=normalized,
-            found=False,
-            channel=None,
-            sample_videos=[],
-            error=str(exc),
-        )
+        return _not_found_response(normalized, error=str(exc))

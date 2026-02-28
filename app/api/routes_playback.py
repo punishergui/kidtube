@@ -13,6 +13,17 @@ from app.services.limits import check_access
 
 router = APIRouter()
 
+_LEGACY_REASON_DETAILS = {
+    "daily_limit": "Daily watch limit reached",
+    "category_limit": "Daily watch limit reached",
+    "bedtime": "Within bedtime window",
+    "schedule": "Outside allowed schedule",
+}
+
+
+def _detail_for_reason(reason: str) -> str:
+    return _LEGACY_REASON_DETAILS.get(reason, reason)
+
 
 class PlaybackLogPayload(BaseModel):
     kid_id: int
@@ -64,7 +75,7 @@ def log_playback(
         now=now,
     )
     if not allowed and reason:
-        raise HTTPException(status_code=403, detail=reason)
+        raise HTTPException(status_code=403, detail=_detail_for_reason(reason))
 
     watch_log = WatchLog(
         kid_id=payload.kid_id,
@@ -111,7 +122,7 @@ def log_watch_heartbeat(
         now=now,
     )
     if not allowed and reason:
-        raise HTTPException(status_code=403, detail=reason)
+        raise HTTPException(status_code=403, detail=_detail_for_reason(reason))
 
     if not payload.is_playing:
         return {"ok": True}
