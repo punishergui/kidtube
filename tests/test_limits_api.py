@@ -213,3 +213,102 @@ def test_video_lookup_returns_403_when_kid_in_bedtime_window(monkeypatch, tmp_pa
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Within bedtime window"}
+
+
+def test_video_lookup_allows_active_bonus_time_then_blocks_at_total_limit(tmp_path: Path) -> None:
+    db_path = tmp_path / "video-bonus-limit-test.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    now = datetime.now(timezone.utc)  # noqa: UP017
+
+    with Session(engine) as session:
+        kid_id = session.execute(
+            text("INSERT INTO kids(name, daily_limit_minutes) VALUES ('Mila', 10)")
+        ).lastrowid
+
+        channel = Channel(
+            youtube_id="UCbonuslimit00000000000000",
+            title="Bonus",
+            resolve_status="ok",
+            allowed=True,
+        )
+        session.add(channel)
+        session.commit()
+        session.refresh(channel)
+
+        video = Video(
+            youtube_id="vid-bonus-limit",
+            channel_id=channel.id,
+            title="Bonus watch",
+            thumbnail_url="https://img.example/bonus.jpg",
+            published_at=now,
+        )
+        session.add(video)
+        session.commit()
+        session.refresh(video)
+
+        expires_at = (now.replace(hour=23, minute=59, second=59, microsecond=0)).isoformat()
+        session.execute(
+            text(
+                """
+                INSERT INTO kid_bonus_time(kid_id, minutes, expires_at)
+                VALUES (:kid_id, 15, :expires_at)
+                """
+            ),
+            {"kid_id": kid_id, "expires_at": expires_at},
+        )
+
+        session.execute(
+            text(
+                """
+                INSERT INTO watch_log(
+                    kid_id, video_id, seconds_watched, category_id, started_at, created_at
+                )
+                VALUES (:kid_id, :video_id, 1440, NULL, :started_at, :created_at)
+                """
+            ),
+            {
+                "kid_id": kid_id,
+                "video_id": video.id,
+                "started_at": now.isoformat(),
+                "created_at": now.isoformat(),
+            },
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            allowed_response = client.get(f"/api/videos/vid-bonus-limit?kid_id={kid_id}")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert allowed_response.status_code == 200
+
+    with Session(engine) as session:
+        session.execute(
+            text(
+                """
+                INSERT INTO watch_log(
+                    kid_id, video_id, seconds_watched, category_id, started_at, created_at
+                )
+                VALUES (:kid_id, :video_id, 60, NULL, :started_at, :created_at)
+                """
+            ),
+            {
+                "kid_id": kid_id,
+                "video_id": video.id,
+                "started_at": now.isoformat(),
+                "created_at": now.isoformat(),
+            },
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            blocked_response = client.get(f"/api/videos/vid-bonus-limit?kid_id={kid_id}")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert blocked_response.status_code == 403
+    assert blocked_response.json() == {"detail": "Daily watch limit reached"}

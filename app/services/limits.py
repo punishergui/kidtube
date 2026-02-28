@@ -133,6 +133,24 @@ def _resolve_limit_minutes(session: Session, kid_id: int, category_id: int | Non
     return int(kid_limit[0]) if kid_limit[0] is not None else None
 
 
+def active_bonus_seconds(session: Session, kid_id: int, now: datetime) -> int:
+    active_bonus_minutes = session.execute(
+        text(
+            """
+            SELECT COALESCE(SUM(minutes), 0)
+            FROM kid_bonus_time
+            WHERE kid_id = :kid_id
+              AND (expires_at IS NULL OR expires_at > :now)
+            """
+        ),
+        {
+            "kid_id": kid_id,
+            "now": now.isoformat(),
+        },
+    ).one()[0]
+    return int(active_bonus_minutes) * 60
+
+
 def remaining_seconds_for(
     session: Session,
     kid_id: int,
@@ -167,7 +185,9 @@ def remaining_seconds_for(
         },
     ).one()[0]
 
-    return (limit_minutes * 60) - int(watched_seconds)
+    return ((limit_minutes * 60) + active_bonus_seconds(session, kid_id, now)) - int(
+        watched_seconds
+    )
 
 
 def assert_under_limit(
