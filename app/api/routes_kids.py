@@ -8,6 +8,7 @@ from sqlmodel import Session, select
 
 from app.db.models import Kid, KidBonusTime, KidSchedule
 from app.db.session import get_session
+from app.services.security import hash_pin
 
 router = APIRouter()
 
@@ -41,7 +42,12 @@ class KidRead(BaseModel):
     daily_limit_minutes: int | None
     bedtime_start: str | None
     bedtime_end: str | None
+    has_pin: bool = False
     created_at: datetime
+
+
+class KidPinPayload(BaseModel):
+    pin: str = Field(min_length=4, max_length=12)
 
 
 class KidBonusTimeCreate(BaseModel):
@@ -96,7 +102,8 @@ def _assert_kid_exists(session: Session, kid_id: int) -> Kid:
 
 @router.get("", response_model=list[KidRead])
 def list_kids(session: Session = Depends(get_session)) -> list[Kid]:
-    return session.exec(select(Kid).order_by(Kid.id)).all()
+    kids = session.exec(select(Kid).order_by(Kid.id)).all()
+    return [KidRead.model_validate({**kid.model_dump(), "has_pin": bool(kid.pin)}) for kid in kids]
 
 
 @router.post("", response_model=KidRead, status_code=status.HTTP_201_CREATED)
@@ -105,7 +112,7 @@ def create_kid(payload: KidCreate, session: Session = Depends(get_session)) -> K
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return KidRead.model_validate({**kid.model_dump(), "has_pin": bool(kid.pin)})
 
 
 @router.patch("/{kid_id}", response_model=KidRead)
@@ -118,7 +125,32 @@ def patch_kid(kid_id: int, payload: KidUpdate, session: Session = Depends(get_se
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return KidRead.model_validate({**kid.model_dump(), "has_pin": bool(kid.pin)})
+
+
+@router.put("/{kid_id}/pin")
+def set_kid_pin(
+    kid_id: int,
+    payload: KidPinPayload,
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    kid = _assert_kid_exists(session, kid_id)
+    pin = payload.pin.strip()
+    if not pin.isdigit():
+        raise HTTPException(status_code=400, detail="PIN must be numeric")
+    kid.pin = hash_pin(pin)
+    session.add(kid)
+    session.commit()
+    return {"ok": True}
+
+
+@router.delete("/{kid_id}/pin")
+def remove_kid_pin(kid_id: int, session: Session = Depends(get_session)) -> dict[str, bool]:
+    kid = _assert_kid_exists(session, kid_id)
+    kid.pin = None
+    session.add(kid)
+    session.commit()
+    return {"ok": True}
 
 
 @router.get("/{kid_id}/schedules", response_model=list[KidScheduleRead])

@@ -36,10 +36,11 @@ def list_search_logs(
     rows = session.execute(
         text(
             """
-            SELECT id, kid_id, query, created_at
-            FROM search_log
-            WHERE (:kid_id IS NULL OR kid_id = :kid_id)
-            ORDER BY created_at DESC, id DESC
+            SELECT sl.id, sl.kid_id, k.name AS kid_name, sl.query, sl.created_at
+            FROM search_log sl
+            JOIN kids k ON k.id = sl.kid_id
+            WHERE (:kid_id IS NULL OR sl.kid_id = :kid_id)
+            ORDER BY sl.created_at DESC, sl.id DESC
             LIMIT :limit
             """
         ),
@@ -68,6 +69,39 @@ def list_watch_logs(
                 v.title AS video_title
             FROM watch_log wl
             LEFT JOIN videos v ON v.id = wl.video_id
+            WHERE (:kid_id IS NULL OR wl.kid_id = :kid_id)
+            ORDER BY wl.created_at DESC, wl.id DESC
+            LIMIT :limit
+            """
+        ),
+        {'kid_id': kid_id, 'limit': limit},
+    ).mappings().all()
+    return [dict(row) for row in rows]
+
+
+@router.get('/recent')
+def list_recent_watch_logs(
+    kid_id: int | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    session: Session = Depends(get_session),
+) -> list[dict[str, object | None]]:
+    rows = session.execute(
+        text(
+            """
+            SELECT
+                wl.id,
+                wl.kid_id,
+                k.name AS kid_name,
+                wl.seconds_watched,
+                wl.created_at,
+                v.title AS video_title,
+                c.title AS channel_title,
+                cat.name AS category_name
+            FROM watch_log wl
+            JOIN kids k ON k.id = wl.kid_id
+            LEFT JOIN videos v ON v.id = wl.video_id
+            LEFT JOIN channels c ON c.id = v.channel_id
+            LEFT JOIN categories cat ON cat.id = wl.category_id
             WHERE (:kid_id IS NULL OR wl.kid_id = :kid_id)
             ORDER BY wl.created_at DESC, wl.id DESC
             LIMIT :limit

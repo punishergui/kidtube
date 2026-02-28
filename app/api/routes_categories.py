@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -102,10 +103,41 @@ def patch_category(
 
 
 @router.delete("/{category_id}", response_model=CategoryRead)
-def disable_category(category_id: int, session: Session = Depends(get_session)) -> Category:
+def disable_category(
+    category_id: int,
+    archive: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> Category:
     category = session.get(Category, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
+
+    in_use = bool(
+        session.execute(
+            text("SELECT 1 FROM channels WHERE category_id = :category_id LIMIT 1"),
+            {"category_id": category_id},
+        ).first()
+        or session.execute(
+            text("SELECT 1 FROM watch_log WHERE category_id = :category_id LIMIT 1"),
+            {"category_id": category_id},
+        ).first()
+    )
+
+    if in_use and not archive:
+        raise HTTPException(status_code=409, detail="Category is in use; archive instead")
+
+    if not in_use and not archive:
+        session.delete(category)
+        session.commit()
+        return CategoryRead.model_validate(
+            {
+                "id": category_id,
+                "name": category.name,
+                "enabled": False,
+                "daily_limit_minutes": category.daily_limit_minutes,
+                "created_at": category.created_at,
+            }
+        )
 
     category.enabled = False
     session.add(category)

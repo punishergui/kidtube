@@ -23,6 +23,8 @@ class FeedItem(BaseModel):
     video_title: str
     video_thumbnail_url: str
     video_published_at: datetime
+    video_duration_seconds: int | None = None
+    video_is_short: bool = False
 
 
 @router.get("", response_model=list[FeedItem])
@@ -82,7 +84,9 @@ def list_feed(
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
-            v.published_at AS video_published_at
+            v.published_at AS video_published_at,
+            v.duration_seconds AS video_duration_seconds,
+            v.is_short AS video_is_short
         FROM videos v
         JOIN channels c ON c.id = v.channel_id
         LEFT JOIN categories cat ON cat.id = c.category_id
@@ -127,7 +131,9 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
-            v.published_at AS video_published_at
+            v.published_at AS video_published_at,
+            v.duration_seconds AS video_duration_seconds,
+            v.is_short AS video_is_short
         FROM channels c
         JOIN videos v ON v.channel_id = c.id
         LEFT JOIN categories cat ON cat.id = c.category_id
@@ -146,4 +152,39 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
         """
     )
     rows = session.execute(query).mappings().all()
+    return [FeedItem.model_validate(row) for row in rows]
+
+
+@router.get('/shorts', response_model=list[FeedItem])
+def list_shorts(
+    limit: int = Query(default=20, ge=1, le=50),
+    session: Session = Depends(get_session),
+) -> list[FeedItem]:
+    shorts_enabled = session.execute(text("SELECT shorts_enabled FROM parent_settings WHERE id = 1")).first()
+    if shorts_enabled and int(shorts_enabled[0]) == 0:
+        return []
+    rows = session.execute(
+        text(
+            """
+            SELECT
+                c.id AS channel_id,
+                c.youtube_id AS channel_youtube_id,
+                c.title AS channel_title,
+                c.avatar_url AS channel_avatar_url,
+                c.category AS channel_category,
+                v.youtube_id AS video_youtube_id,
+                v.title AS video_title,
+                v.thumbnail_url AS video_thumbnail_url,
+                v.published_at AS video_published_at,
+                v.duration_seconds AS video_duration_seconds,
+                v.is_short AS video_is_short
+            FROM videos v
+            JOIN channels c ON c.id = v.channel_id
+            WHERE c.enabled = 1 AND c.allowed = 1 AND c.blocked = 0 AND v.is_short = 1
+            ORDER BY v.published_at DESC
+            LIMIT :limit
+            """
+        ),
+        {"limit": limit},
+    ).mappings().all()
     return [FeedItem.model_validate(row) for row in rows]

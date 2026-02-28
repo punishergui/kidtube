@@ -6,6 +6,7 @@ from sqlmodel import Session
 
 from app.db.models import Kid
 from app.db.session import get_session
+from app.services.security import verify_pin_hash
 
 router = APIRouter()
 
@@ -57,7 +58,7 @@ def verify_pin(
         raise HTTPException(status_code=400, detail="No pending kid selection")
 
     kid = session.get(Kid, pending_kid_id)
-    if not kid or kid.pin != payload.pin:
+    if not kid or not verify_pin_hash(kid.pin, payload.pin):
         raise HTTPException(status_code=403, detail="Invalid PIN")
 
     request.session["kid_id"] = pending_kid_id

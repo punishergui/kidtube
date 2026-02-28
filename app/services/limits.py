@@ -32,6 +32,7 @@ def _is_within_window(now_minutes: int, start_minutes: int, end_minutes: int) ->
 
 
 def is_in_any_schedule(session: Session, kid_id: int, now: datetime) -> bool:
+    sunday_first_day = (now.weekday() + 1) % 7
     rows = session.execute(
         text(
             """
@@ -43,7 +44,7 @@ def is_in_any_schedule(session: Session, kid_id: int, now: datetime) -> bool:
         ),
         {
             "kid_id": kid_id,
-            "day_of_week": now.weekday(),
+            "day_of_week": sunday_first_day,
         },
     ).all()
 

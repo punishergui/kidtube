@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import httpx
@@ -112,6 +113,85 @@ async def fetch_latest_videos(
                 "title": snippet.get("title") or "Untitled",
                 "thumbnail_url": thumb.get("url") or "",
                 "published_at": published_at,
+            }
+        )
+
+    return records
+
+
+def parse_iso8601_duration_seconds(value: str) -> int | None:
+    match = re.fullmatch(
+        r"P(?:\d+Y)?(?:\d+M)?(?:\d+W)?(?:\d+D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?",
+        value,
+    )
+    if not match:
+        return None
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    return (hours * 3600) + (minutes * 60) + seconds
+
+
+async def search_videos(
+    query: str,
+    max_results: int = 12,
+    client: httpx.AsyncClient | None = None,
+) -> list[dict[str, Any]]:
+    api_key = settings.youtube_api_key
+    if not api_key:
+        return []
+
+    payload = await _youtube_get(
+        "/search",
+        {
+            "part": "snippet",
+            "q": query,
+            "type": "video",
+            "maxResults": max(1, min(max_results, 25)),
+            "key": api_key,
+        },
+        client=client,
+    )
+
+    base_items = payload.get("items", [])
+    video_ids = [item.get("id", {}).get("videoId") for item in base_items if item.get("id", {}).get("videoId")]
+
+    durations: dict[str, int | None] = {}
+    if video_ids:
+        details = await _youtube_get(
+            "/videos",
+            {
+                "part": "contentDetails",
+                "id": ",".join(video_ids),
+                "key": api_key,
+            },
+            client=client,
+        )
+        for item in details.get("items", []):
+            video_id = item.get("id")
+            iso_duration = item.get("contentDetails", {}).get("duration")
+            if video_id and iso_duration:
+                durations[video_id] = parse_iso8601_duration_seconds(iso_duration)
+
+    records: list[dict[str, Any]] = []
+    for item in base_items:
+        snippet = item.get("snippet", {})
+        video_id = item.get("id", {}).get("videoId")
+        if not video_id:
+            continue
+        thumbnails = snippet.get("thumbnails", {})
+        thumb = thumbnails.get("high") or thumbnails.get("medium") or thumbnails.get("default") or {}
+        duration_seconds = durations.get(video_id)
+        records.append(
+            {
+                "video_id": video_id,
+                "title": snippet.get("title") or "Untitled",
+                "channel_id": snippet.get("channelId"),
+                "channel_title": snippet.get("channelTitle") or "Unknown channel",
+                "thumbnail_url": thumb.get("url") or "",
+                "published_at": snippet.get("publishedAt"),
+                "duration_seconds": duration_seconds,
+                "is_short": bool(duration_seconds is not None and duration_seconds <= 60),
             }
         )
 
