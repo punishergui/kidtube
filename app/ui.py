@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.db.models import Kid
 from app.db.session import engine
+from app.services.limits import assert_schedule_allowed, assert_under_limit
 
 router = APIRouter()
 
@@ -110,7 +114,54 @@ def ui_sync_redirect() -> RedirectResponse:
 
 
 @router.get("/watch/{youtube_id}", response_class=HTMLResponse)
-def ui_watch(request: Request, youtube_id: str) -> HTMLResponse:
+def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectResponse:
+    kid_id = request.session.get("kid_id")
+    if not kid_id:
+        return RedirectResponse(url="/", status_code=307)
+
+    with Session(engine) as session:
+        kid = session.get(Kid, kid_id)
+        if not kid:
+            request.session.pop("kid_id", None)
+            request.session.pop("pending_kid_id", None)
+            return RedirectResponse(url="/", status_code=307)
+
+        now = datetime.now(timezone.utc)  # noqa: UP017
+
+        try:
+            assert_schedule_allowed(session, kid_id=kid_id, now=now)
+        except HTTPException as exc:
+            if exc.status_code == 403:
+                query = urlencode({"unlock_time": "your allowed schedule"})
+                return RedirectResponse(url=f"/blocked/schedule?{query}", status_code=307)
+            raise
+
+        video = session.execute(
+            text(
+                """
+                SELECT c.category_id
+                FROM videos v
+                JOIN channels c ON c.id = v.channel_id
+                WHERE v.youtube_id = :youtube_id
+                LIMIT 1
+                """
+            ),
+            {"youtube_id": youtube_id},
+        ).mappings().first()
+
+        if video:
+            try:
+                assert_under_limit(
+                    session,
+                    kid_id=kid_id,
+                    category_id=video["category_id"],
+                    now=now,
+                )
+            except HTTPException as exc:
+                if exc.status_code == 403:
+                    return RedirectResponse(url="/blocked/time", status_code=307)
+                raise
+
     embed_origin = str(request.base_url).rstrip("/")
     return render_page(
         request,
@@ -119,6 +170,64 @@ def ui_watch(request: Request, youtube_id: str) -> HTMLResponse:
         youtube_id=youtube_id,
         embed_origin=embed_origin,
         nav_mode='kid',
+    )
+
+
+@router.get("/blocked/time", response_class=HTMLResponse)
+def ui_blocked_time(request: Request) -> HTMLResponse | RedirectResponse:
+    kid_id = request.session.get("kid_id")
+    if not kid_id:
+        return RedirectResponse(url="/", status_code=307)
+
+    with Session(engine) as session:
+        kid = session.get(Kid, kid_id)
+
+    if not kid:
+        return RedirectResponse(url="/", status_code=307)
+
+    return render_page(
+        request,
+        "blocked_time.html",
+        current_kid={"name": kid.name, "avatar_url": kid.avatar_url},
+    )
+
+
+@router.get("/blocked/schedule", response_class=HTMLResponse)
+def ui_blocked_schedule(request: Request, unlock_time: str = "later") -> HTMLResponse | RedirectResponse:
+    kid_id = request.session.get("kid_id")
+    if not kid_id:
+        return RedirectResponse(url="/", status_code=307)
+
+    with Session(engine) as session:
+        kid = session.get(Kid, kid_id)
+
+    if not kid:
+        return RedirectResponse(url="/", status_code=307)
+
+    return render_page(
+        request,
+        "blocked_schedule.html",
+        unlock_time=unlock_time,
+        current_kid={"name": kid.name, "avatar_url": kid.avatar_url},
+    )
+
+
+@router.get("/blocked/pending", response_class=HTMLResponse)
+def ui_blocked_pending(request: Request) -> HTMLResponse | RedirectResponse:
+    kid_id = request.session.get("kid_id")
+    if not kid_id:
+        return RedirectResponse(url="/", status_code=307)
+
+    with Session(engine) as session:
+        kid = session.get(Kid, kid_id)
+
+    if not kid:
+        return RedirectResponse(url="/", status_code=307)
+
+    return render_page(
+        request,
+        "blocked_pending.html",
+        current_kid={"name": kid.name, "avatar_url": kid.avatar_url},
     )
 
 
