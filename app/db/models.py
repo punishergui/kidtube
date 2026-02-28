@@ -13,6 +13,8 @@ class Kid(SQLModel, table=True):
     avatar_url: str | None = None
     pin: str | None = None
     daily_limit_minutes: int | None = None
+    bedtime_start: str | None = None
+    bedtime_end: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

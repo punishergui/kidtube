@@ -16,6 +16,90 @@ def _utc_day_bounds(now: datetime) -> tuple[datetime, datetime]:
     return day_start, day_end
 
 
+def _time_to_minutes(value: str) -> int:
+    hours_str, minutes_str = value.split(":", 1)
+    hours = int(hours_str)
+    minutes = int(minutes_str)
+    if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+        raise ValueError("Invalid time value")
+    return (hours * 60) + minutes
+
+
+def _is_within_window(now_minutes: int, start_minutes: int, end_minutes: int) -> bool:
+    if start_minutes <= end_minutes:
+        return start_minutes <= now_minutes <= end_minutes
+    return now_minutes >= start_minutes or now_minutes <= end_minutes
+
+
+def is_in_any_schedule(session: Session, kid_id: int, now: datetime) -> bool:
+    rows = session.execute(
+        text(
+            """
+            SELECT start_time, end_time
+            FROM kid_schedules
+            WHERE kid_id = :kid_id
+              AND day_of_week = :day_of_week
+            """
+        ),
+        {
+            "kid_id": kid_id,
+            "day_of_week": now.weekday(),
+        },
+    ).all()
+
+    if not rows:
+        return True
+
+    now_minutes = (now.hour * 60) + now.minute
+    for start_time, end_time in rows:
+        try:
+            start_minutes = _time_to_minutes(start_time)
+            end_minutes = _time_to_minutes(end_time)
+        except ValueError:
+            continue
+
+        if _is_within_window(now_minutes, start_minutes, end_minutes):
+            return True
+
+    return False
+
+
+def is_in_bedtime(session: Session, kid_id: int, now: datetime) -> bool:
+    bedtime = session.execute(
+        text(
+            """
+            SELECT bedtime_start, bedtime_end
+            FROM kids
+            WHERE id = :kid_id
+            LIMIT 1
+            """
+        ),
+        {"kid_id": kid_id},
+    ).first()
+    if not bedtime:
+        raise HTTPException(status_code=404, detail="Kid not found")
+
+    bedtime_start, bedtime_end = bedtime
+    if bedtime_start is None or bedtime_end is None:
+        return False
+
+    try:
+        start_minutes = _time_to_minutes(str(bedtime_start))
+        end_minutes = _time_to_minutes(str(bedtime_end))
+    except ValueError:
+        return False
+
+    now_minutes = (now.hour * 60) + now.minute
+    return _is_within_window(now_minutes, start_minutes, end_minutes)
+
+
+def assert_schedule_allowed(session: Session, kid_id: int, now: datetime) -> None:
+    if not is_in_any_schedule(session, kid_id, now):
+        raise HTTPException(status_code=403, detail="Outside allowed schedule")
+    if is_in_bedtime(session, kid_id, now):
+        raise HTTPException(status_code=403, detail="Within bedtime window")
+
+
 def _resolve_limit_minutes(session: Session, kid_id: int, category_id: int | None) -> int | None:
     if category_id is not None:
         kid_category_limit = session.execute(

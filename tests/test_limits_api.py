@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from datetime import datetime as real_datetime
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -159,3 +160,56 @@ def test_video_lookup_returns_403_when_kid_over_category_limit(tmp_path: Path) -
 
     assert response.status_code == 403
     assert response.json() == {"detail": "Daily watch limit reached"}
+
+
+def test_video_lookup_returns_403_when_kid_in_bedtime_window(monkeypatch, tmp_path: Path) -> None:
+    class _FakeDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2024, 1, 1, 12, 0, tzinfo=tz)
+
+    monkeypatch.setattr("app.api.routes_videos.datetime", _FakeDateTime)
+
+    db_path = tmp_path / "video-bedtime-test.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    with Session(engine) as session:
+        kid_id = session.execute(
+            text(
+                """
+                INSERT INTO kids(name, bedtime_start, bedtime_end)
+                VALUES ('Sam', '00:00', '23:59')
+                """
+            )
+        ).lastrowid
+
+        channel = Channel(
+            youtube_id="UCbedtime0000000000000000",
+            title="Bedtime",
+            resolve_status="ok",
+            allowed=True,
+        )
+        session.add(channel)
+        session.commit()
+        session.refresh(channel)
+
+        session.add(
+            Video(
+                youtube_id="vid-bedtime",
+                channel_id=channel.id,
+                title="Sleep now",
+                thumbnail_url="https://img.example/bedtime.jpg",
+                published_at=real_datetime(2024, 1, 1, 8, 0, tzinfo=timezone.utc),  # noqa: UP017,
+            )
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            response = client.get(f"/api/videos/vid-bedtime?kid_id={kid_id}")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Within bedtime window"}
