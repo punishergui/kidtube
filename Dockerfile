@@ -3,6 +3,11 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+ARG APP_UID=10001
+ARG APP_GID=10001
+
+RUN groupadd --gid ${APP_GID} kidtube && useradd --uid ${APP_UID} --gid ${APP_GID} --create-home --shell /usr/sbin/nologin kidtube
+
 WORKDIR /app
 
 COPY pyproject.toml README.md ./
@@ -10,7 +15,9 @@ COPY app ./app
 
 RUN python -m pip install --upgrade pip && pip install .
 
-RUN mkdir -p /data
+RUN mkdir -p /data /app/app/static/uploads && chown -R kidtube:kidtube /app /data
+
+USER kidtube
 
 EXPOSE 2018
 

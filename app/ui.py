@@ -22,7 +22,7 @@ def render_page(request: Request, template_name: str, **context: str) -> HTMLRes
         "img-src 'self' data: https://i.ytimg.com https:; "
         "style-src 'self' 'unsafe-inline'; "
         "script-src 'self' https://www.youtube.com; "
-        "frame-src https://www.youtube-nocookie.com https://www.youtube.com; "
+        "frame-src https://www.youtube-nocookie.com; "
         "connect-src 'self'"
     )
     response.headers["Referrer-Policy"] = "no-referrer"
@@ -54,6 +54,11 @@ def ui_admin_kids(request: Request) -> HTMLResponse:
 @router.get('/admin/sync', response_class=HTMLResponse)
 def ui_admin_sync(request: Request) -> HTMLResponse:
     return render_page(request, 'sync.html', page='sync', nav_mode='admin')
+
+
+@router.get('/admin/stats', response_class=HTMLResponse)
+def ui_admin_stats(request: Request) -> HTMLResponse:
+    return render_page(request, 'stats.html', page='stats', nav_mode='admin')
 
 
 @router.get('/channels')

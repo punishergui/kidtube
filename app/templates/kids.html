@@ -1,12 +1,14 @@
 {% extends "base.html" %}
-{% block title %}KidTube · Admin Kids{% endblock %}
+{% block title %}KidTube · Kid Controls{% endblock %}
 {% block content %}
 <section class="page-head">
-  <h1>Admin · Kids</h1>
+  <h1>Admin · Kid Limits, Schedules & Bonus Time</h1>
 </section>
 <form id="add-kid-form" class="panel form-panel">
   <input name="name" placeholder="Name" required />
   <input name="daily_limit_minutes" type="number" min="1" placeholder="Daily limit minutes" />
+  <input name="bedtime_start" type="time" placeholder="Bedtime start" />
+  <input name="bedtime_end" type="time" placeholder="Bedtime end" />
   <button type="submit" class="btn-primary">Add Kid</button>
 </form>
 <section id="kids-body" class="admin-list"></section>

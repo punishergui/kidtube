@@ -20,3 +20,12 @@ jobs:
         run: ruff check .
       - name: Tests
         run: pytest
+
+      - name: Smoke start + HTTP checks
+        run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 2018 &
+          APP_PID=$!
+          sleep 3
+          curl -fsS http://127.0.0.1:2018/health
+          curl -fsS http://127.0.0.1:2018/ > /dev/null
+          kill $APP_PID

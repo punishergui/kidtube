@@ -2,17 +2,21 @@
 {% block title %}KidTube · Admin Channels{% endblock %}
 {% block content %}
 <section class="page-head">
-  <h1>Admin · Channels</h1>
+  <h1>Admin · Channels + Categories</h1>
+</section>
+<section class="panel form-panel categories-form-panel">
+  <h2>Categories</h2>
+  <form id="create-category-form" class="inline-form">
+    <input name="name" placeholder="New category name" required />
+    <input name="daily_limit_minutes" type="number" min="0" placeholder="Default daily minutes (optional)" />
+    <button type="submit" class="btn-primary">Add category</button>
+  </form>
+  <section id="categories-body" class="admin-list"></section>
 </section>
 <form id="channel-lookup-form" class="panel form-panel">
   <input name="query" placeholder="@channel, channel ID, or URL" required />
-  <select name="category">
+  <select name="category" id="channel-category-select">
     <option value="">Category (optional)</option>
-    <option value="education">education</option>
-    <option value="music">music</option>
-    <option value="science">science</option>
-    <option value="cartoons">cartoons</option>
-    <option value="other">other</option>
   </select>
   <button type="submit" class="btn-primary">Search</button>
 </form>

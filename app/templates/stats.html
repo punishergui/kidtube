@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Admin Logs + Stats{% endblock %}
+{% block content %}
+<section class="page-head">
+  <h1>Admin · Logs + Stats</h1>
+</section>
+<section class="panel stats-summary" id="stats-summary"></section>
+<section class="panel form-panel">
+  <select id="stats-kid-filter"><option value="">All kids</option></select>
+  <button id="refresh-stats" class="btn-primary" type="button">Refresh</button>
+</section>
+<section class="panel table-wrap">
+  <h2>Watch Stats by Category</h2>
+  <div id="stats-categories"></div>
+</section>
+<section class="panel table-wrap">
+  <h2>Recent Watch Logs</h2>
+  <div id="watch-logs"></div>
+</section>
+<section class="panel table-wrap">
+  <h2>Recent Search Logs</h2>
+  <div id="search-logs"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/stats.js"></script>
+{% endblock %}

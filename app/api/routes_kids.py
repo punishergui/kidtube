@@ -2,11 +2,11 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, select
 
-from app.db.models import Kid, KidBonusTime
+from app.db.models import Kid, KidBonusTime, KidSchedule
 from app.db.session import get_session
 
 router = APIRouter()
@@ -57,6 +57,25 @@ class KidBonusTimeRead(BaseModel):
     created_at: datetime
 
 
+class KidScheduleCreate(BaseModel):
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: str
+    end_time: str
+
+
+class KidScheduleRead(BaseModel):
+    id: int
+    kid_id: int
+    day_of_week: int
+    start_time: str
+    end_time: str
+    created_at: datetime
+
+
+class KidCategoryLimitUpdate(BaseModel):
+    daily_limit_minutes: int = Field(ge=0)
+
+
 def _avatar_path(kid_id: int) -> Path:
     app_dir = Path(__file__).resolve().parents[1]
     upload_dir = app_dir / "static" / "uploads" / "kids" / str(kid_id)
@@ -66,6 +85,13 @@ def _avatar_path(kid_id: int) -> Path:
 def _delete_avatar_file(kid_id: int) -> None:
     avatar_path = _avatar_path(kid_id)
     avatar_path.unlink(missing_ok=True)
+
+
+def _assert_kid_exists(session: Session, kid_id: int) -> Kid:
+    kid = session.get(Kid, kid_id)
+    if not kid:
+        raise HTTPException(status_code=404, detail="Kid not found")
+    return kid
 
 
 @router.get("", response_model=list[KidRead])
@@ -84,9 +110,7 @@ def create_kid(payload: KidCreate, session: Session = Depends(get_session)) -> K
 
 @router.patch("/{kid_id}", response_model=KidRead)
 def patch_kid(kid_id: int, payload: KidUpdate, session: Session = Depends(get_session)) -> Kid:
-    kid = session.get(Kid, kid_id)
-    if not kid:
-        raise HTTPException(status_code=404, detail="Kid not found")
+    kid = _assert_kid_exists(session, kid_id)
 
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(kid, field, value)
@@ -97,6 +121,143 @@ def patch_kid(kid_id: int, payload: KidUpdate, session: Session = Depends(get_se
     return kid
 
 
+@router.get("/{kid_id}/schedules", response_model=list[KidScheduleRead])
+def list_kid_schedules(kid_id: int, session: Session = Depends(get_session)) -> list[KidSchedule]:
+    _assert_kid_exists(session, kid_id)
+    return session.exec(
+        select(KidSchedule)
+        .where(KidSchedule.kid_id == kid_id)
+        .order_by(KidSchedule.day_of_week, KidSchedule.start_time)
+    ).all()
+
+
+@router.post(
+    "/{kid_id}/schedules", response_model=KidScheduleRead, status_code=status.HTTP_201_CREATED
+)
+def create_kid_schedule(
+    kid_id: int,
+    payload: KidScheduleCreate,
+    session: Session = Depends(get_session),
+) -> KidSchedule:
+    _assert_kid_exists(session, kid_id)
+    schedule = KidSchedule(kid_id=kid_id, **payload.model_dump())
+    session.add(schedule)
+    session.commit()
+    session.refresh(schedule)
+    return schedule
+
+
+@router.delete("/{kid_id}/schedules/{schedule_id}")
+def delete_kid_schedule(
+    kid_id: int, schedule_id: int, session: Session = Depends(get_session)
+) -> dict[str, bool]:
+    _assert_kid_exists(session, kid_id)
+    schedule = session.get(KidSchedule, schedule_id)
+    if not schedule or schedule.kid_id != kid_id:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+
+    session.delete(schedule)
+    session.commit()
+    return {"ok": True}
+
+
+@router.get("/{kid_id}/category-limits")
+def list_kid_category_limits(
+    kid_id: int, session: Session = Depends(get_session)
+) -> list[dict[str, object]]:
+    _assert_kid_exists(session, kid_id)
+    rows = (
+        session.execute(
+            text(
+                """
+            SELECT kcl.category_id, c.name AS category_name, kcl.daily_limit_minutes
+            FROM kid_category_limits kcl
+            INNER JOIN categories c ON c.id = kcl.category_id
+            WHERE kcl.kid_id = :kid_id
+            ORDER BY c.name
+            """
+            ),
+            {"kid_id": kid_id},
+        )
+        .mappings()
+        .all()
+    )
+    return [dict(row) for row in rows]
+
+
+@router.put("/{kid_id}/category-limits/{category_id}")
+def upsert_kid_category_limit(
+    kid_id: int,
+    category_id: int,
+    payload: KidCategoryLimitUpdate,
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    _assert_kid_exists(session, kid_id)
+    category_exists = session.execute(
+        text("SELECT 1 FROM categories WHERE id = :category_id LIMIT 1"),
+        {"category_id": category_id},
+    ).first()
+    if not category_exists:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    existing = session.execute(
+        text(
+            """
+            SELECT id
+            FROM kid_category_limits
+            WHERE kid_id = :kid_id AND category_id = :category_id
+            LIMIT 1
+            """
+        ),
+        {"kid_id": kid_id, "category_id": category_id},
+    ).first()
+
+    if existing:
+        session.execute(
+            text(
+                """
+                UPDATE kid_category_limits
+                SET daily_limit_minutes = :daily_limit_minutes
+                WHERE id = :id
+                """
+            ),
+            {"daily_limit_minutes": payload.daily_limit_minutes, "id": existing[0]},
+        )
+    else:
+        session.execute(
+            text(
+                """
+                INSERT INTO kid_category_limits(kid_id, category_id, daily_limit_minutes)
+                VALUES (:kid_id, :category_id, :daily_limit_minutes)
+                """
+            ),
+            {
+                "kid_id": kid_id,
+                "category_id": category_id,
+                "daily_limit_minutes": payload.daily_limit_minutes,
+            },
+        )
+
+    session.commit()
+    return {"ok": True}
+
+
+@router.delete("/{kid_id}/category-limits/{category_id}")
+def delete_kid_category_limit(
+    kid_id: int, category_id: int, session: Session = Depends(get_session)
+) -> dict[str, bool]:
+    _assert_kid_exists(session, kid_id)
+    session.execute(
+        text(
+            """
+            DELETE FROM kid_category_limits
+            WHERE kid_id = :kid_id AND category_id = :category_id
+            """
+        ),
+        {"kid_id": kid_id, "category_id": category_id},
+    )
+    session.commit()
+    return {"ok": True}
 
 
 @router.post(
@@ -109,9 +270,7 @@ def create_kid_bonus_time(
     payload: KidBonusTimeCreate,
     session: Session = Depends(get_session),
 ) -> KidBonusTime:
-    kid = session.get(Kid, kid_id)
-    if not kid:
-        raise HTTPException(status_code=404, detail="Kid not found")
+    _assert_kid_exists(session, kid_id)
 
     if payload.minutes <= 0:
         raise HTTPException(status_code=400, detail="minutes must be greater than 0")
@@ -134,9 +293,7 @@ def create_kid_bonus_time(
 
 @router.get("/{kid_id}/bonus-time", response_model=list[KidBonusTimeRead])
 def list_kid_bonus_time(kid_id: int, session: Session = Depends(get_session)) -> list[KidBonusTime]:
-    kid = session.get(Kid, kid_id)
-    if not kid:
-        raise HTTPException(status_code=404, detail="Kid not found")
+    _assert_kid_exists(session, kid_id)
 
     now = datetime.now(timezone.utc)  # noqa: UP017
     query = text(
@@ -158,9 +315,7 @@ async def upload_kid_avatar(
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
 ) -> Kid:
-    kid = session.get(Kid, kid_id)
-    if not kid:
-        raise HTTPException(status_code=404, detail="Kid not found")
+    kid = _assert_kid_exists(session, kid_id)
 
     if (file.content_type or "") not in ALLOWED_AVATAR_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported avatar file type")
@@ -182,9 +337,7 @@ async def upload_kid_avatar(
 
 @router.delete("/{kid_id}/avatar", response_model=KidRead)
 def delete_kid_avatar(kid_id: int, session: Session = Depends(get_session)) -> Kid:
-    kid = session.get(Kid, kid_id)
-    if not kid:
-        raise HTTPException(status_code=404, detail="Kid not found")
+    kid = _assert_kid_exists(session, kid_id)
 
     _delete_avatar_file(kid_id)
     kid.avatar_url = None

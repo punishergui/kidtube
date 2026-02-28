@@ -8,6 +8,8 @@ const moreButton = document.getElementById('see-more-btn');
 const pinGate = document.getElementById('pin-gate');
 const pinInput = document.getElementById('pin-input');
 const pinSubmit = document.getElementById('pin-submit');
+const pinCancel = document.getElementById('pin-cancel');
+const pinError = document.getElementById('pin-error');
 const categoryPanel = document.getElementById('category-panel');
 const newAdventures = document.getElementById('new-adventures');
 const latestVideos = document.getElementById('latest-videos');
@@ -109,6 +111,7 @@ function renderKids() {
         state.pendingKidId = payload.pin_required ? payload.kid_id : null;
         state.kidId = payload.pin_required ? null : payload.kid_id;
         pinGate.hidden = !payload.pin_required;
+        if (pinError) pinError.hidden = true;
         renderKids();
         if (!payload.pin_required) {
           await loadFeedData();
@@ -206,6 +209,7 @@ async function loadDashboard() {
 }
 
 pinSubmit?.addEventListener('click', async () => {
+  if (pinError) pinError.hidden = true;
   try {
     const payload = await requestJson('/api/session/kid/verify-pin', {
       method: 'POST',
@@ -217,8 +221,17 @@ pinSubmit?.addEventListener('click', async () => {
     renderKids();
     await loadFeedData();
   } catch (error) {
+    if (pinError) pinError.hidden = false;
     showToast(`Invalid PIN: ${error.message}`, 'error');
   }
+});
+
+pinCancel?.addEventListener('click', () => {
+  state.pendingKidId = null;
+  pinGate.hidden = true;
+  pinInput.value = '';
+  if (pinError) pinError.hidden = true;
+  renderKids();
 });
 
 moreButton?.addEventListener('click', async () => {
