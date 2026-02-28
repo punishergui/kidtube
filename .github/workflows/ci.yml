@@ -19,8 +19,6 @@ jobs:
       - name: Ruff
         run: ruff check .
       - name: Tests
-        env:
-          AVATAR_DIR: /tmp/avatars/kids
         run: pytest
 
       - name: Smoke start + HTTP checks
