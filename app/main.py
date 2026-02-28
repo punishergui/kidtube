@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
                 parent_info.get("mode"),
                 parent_info.get("writable"),
             )
-            raise SystemExit(1) from exc
+            raise RuntimeError(str(exc)) from exc
 
     run_migrations(engine, Path(__file__).parent / "db" / "migrations")
     app.state.started_at = time.time()
