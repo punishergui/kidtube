@@ -18,6 +18,35 @@ def _client_for_engine(engine):
     return TestClient(app)
 
 
+def test_create_kid_accepts_parent_controls(tmp_path: Path) -> None:
+    db_path = tmp_path / 'kids-create-api.db'
+    engine = create_engine(f'sqlite:///{db_path}')
+    run_migrations(engine, Path('app/db/migrations'))
+
+    payload = {
+        'name': 'Luna',
+        'daily_limit_minutes': 50,
+        'bedtime_start': '20:30',
+        'bedtime_end': '06:30',
+        'weekend_bonus_minutes': 20,
+        'require_parent_approval': True,
+    }
+
+    try:
+        with _client_for_engine(engine) as client:
+            response = client.post('/api/kids', json=payload)
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 201
+    created = response.json()
+    assert created['name'] == 'Luna'
+    assert created['bedtime_start'] == '20:30'
+    assert created['bedtime_end'] == '06:30'
+    assert created['weekend_bonus_minutes'] == 20
+    assert created['require_parent_approval'] is True
+
+
 def test_patch_kid_updates_daily_limit_minutes(tmp_path: Path) -> None:
     db_path = tmp_path / 'kids-api.db'
     engine = create_engine(f'sqlite:///{db_path}')
@@ -35,7 +64,16 @@ def test_patch_kid_updates_daily_limit_minutes(tmp_path: Path) -> None:
 
     try:
         with _client_for_engine(engine) as client:
-            response = client.patch(f'/api/kids/{kid_id}', json={'daily_limit_minutes': 45})
+            response = client.patch(
+                f'/api/kids/{kid_id}',
+                json={
+                    'daily_limit_minutes': 45,
+                    'bedtime_start': '21:00',
+                    'bedtime_end': '07:00',
+                    'weekend_bonus_minutes': 15,
+                    'require_parent_approval': True,
+                },
+            )
             upload_response = client.post(
                 f'/api/kids/{kid_id}/avatar',
                 files={'file': ('avatar.png', b'\x89PNG\r\n\x1a\n', 'image/png')},
@@ -45,6 +83,10 @@ def test_patch_kid_updates_daily_limit_minutes(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.json()['daily_limit_minutes'] == 45
+    assert response.json()['bedtime_start'] == '21:00'
+    assert response.json()['bedtime_end'] == '07:00'
+    assert response.json()['weekend_bonus_minutes'] == 15
+    assert response.json()['require_parent_approval'] is True
 
     assert upload_response.status_code == 200
     avatar_url = upload_response.json()['avatar_url']
@@ -60,3 +102,20 @@ def test_patch_kid_updates_daily_limit_minutes(tmp_path: Path) -> None:
     assert delete_avatar_response.status_code == 200
     assert delete_avatar_response.json()['avatar_url'] is None
     assert not avatar_file.exists()
+
+
+def test_create_kid_rejects_invalid_bedtime(tmp_path: Path) -> None:
+    db_path = tmp_path / 'kids-invalid-bedtime.db'
+    engine = create_engine(f'sqlite:///{db_path}')
+    run_migrations(engine, Path('app/db/migrations'))
+
+    try:
+        with _client_for_engine(engine) as client:
+            response = client.post(
+                '/api/kids',
+                json={'name': 'Noah', 'bedtime_start': '8pm', 'bedtime_end': '06:00'},
+            )
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 422

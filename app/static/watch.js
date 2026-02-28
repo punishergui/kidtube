@@ -4,6 +4,8 @@ const container = document.getElementById('watch-container');
 const youtubeId = container?.dataset.youtubeId;
 const embedOrigin = container?.dataset.embedOrigin;
 
+const activeKidId = Number(localStorage.getItem('kidtube-active-kid')) || null;
+
 let ytApiPromise;
 
 function escapeHtml(value) {
@@ -35,11 +37,11 @@ function showPlaybackFallback(channelId) {
   }
 }
 
-function renderNotFound() {
+function renderNotFound(message = 'This video is not available in KidTube yet. Try refreshing the feed and come back.') {
   container.innerHTML = `
     <article class="panel watch-details">
       <h2>Video not found</h2>
-      <p class="small">This video is not available in KidTube yet. Try refreshing the feed and come back.</p>
+      <p class="small">${escapeHtml(message)}</p>
     </article>
   `;
 }
@@ -87,7 +89,10 @@ async function loadVideo() {
   }
 
   try {
-    const video = await requestJson(`/api/videos/${youtubeId}`);
+    const params = new URLSearchParams();
+    if (activeKidId) params.set('kid_id', String(activeKidId));
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    const video = await requestJson(`/api/videos/${youtubeId}${suffix}`);
     const channelId = video.channel_id || '';
     container.innerHTML = `
       <section class="player-wrap panel">
@@ -135,6 +140,11 @@ async function loadVideo() {
       },
     });
   } catch (error) {
+    if (String(error.message).includes('403')) {
+      renderNotFound('This video is blocked by parent controls. Ask a parent to approve it.');
+      return;
+    }
+
     renderNotFound();
     if (!String(error.message).includes('404')) {
       showToast(`Unable to load video: ${error.message}`, 'error');

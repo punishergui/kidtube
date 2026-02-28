@@ -5,6 +5,7 @@ const latestGrid = document.getElementById('latest-channel-grid');
 const kidSelector = document.getElementById('kid-selector');
 const categoryPills = document.getElementById('category-pills');
 const moreButton = document.getElementById('see-more-btn');
+const parentControlNote = document.getElementById('parent-control-note');
 
 const categories = ['all', 'education', 'fun'];
 const queryParams = new URLSearchParams(window.location.search);
@@ -12,6 +13,7 @@ const queryParams = new URLSearchParams(window.location.search);
 const state = {
   items: [],
   latestPerChannel: [],
+  kids: [],
   category: localStorage.getItem('kidtube-category') || 'all',
   kidId: Number(localStorage.getItem('kidtube-active-kid')) || null,
   channelFilter: queryParams.get('channel_id') || null,
@@ -95,7 +97,10 @@ function renderKids(kids) {
     button.addEventListener('click', () => {
       state.kidId = Number(button.dataset.kidId);
       localStorage.setItem('kidtube-active-kid', String(state.kidId));
-      renderKids(kids);
+      state.items = [];
+      state.offset = 0;
+      state.hasMore = true;
+      loadDashboard().catch((error) => showToast(`Unable to refresh feed: ${error.message}`, 'error'));
     });
   });
 }
@@ -117,6 +122,38 @@ function card(item) {
   `;
 }
 
+function renderParentControlNote() {
+  const activeKid = state.kids.find((kid) => kid.id === state.kidId);
+  if (!activeKid || !parentControlNote) {
+    return;
+  }
+
+  const hasControls = Boolean(
+    activeKid.require_parent_approval ||
+    activeKid.bedtime_start ||
+    activeKid.bedtime_end ||
+    activeKid.daily_limit_minutes ||
+    activeKid.weekend_bonus_minutes,
+  );
+
+  if (!hasControls) {
+    parentControlNote.hidden = true;
+    parentControlNote.textContent = '';
+    return;
+  }
+
+  parentControlNote.hidden = false;
+  const chunks = [];
+  if (activeKid.daily_limit_minutes) chunks.push(`Daily limit ${activeKid.daily_limit_minutes}m`);
+  if (activeKid.weekend_bonus_minutes) chunks.push(`Weekend +${activeKid.weekend_bonus_minutes}m`);
+  if (activeKid.bedtime_start && activeKid.bedtime_end) {
+    chunks.push(`Bedtime ${activeKid.bedtime_start}-${activeKid.bedtime_end}`);
+  }
+  if (activeKid.require_parent_approval) chunks.push('Parent approval on');
+
+  parentControlNote.textContent = `Parent controls for ${activeKid.name}: ${chunks.join(' • ')}`;
+}
+
 function renderVideos() {
   const visible = state.items.filter(categoryMatches);
   if (!visible.length) {
@@ -124,6 +161,8 @@ function renderVideos() {
   } else {
     grid.innerHTML = visible.map(card).join('');
   }
+
+  renderParentControlNote();
 
   if (latestGrid) {
     latestGrid.innerHTML = state.latestPerChannel.length
@@ -155,9 +194,14 @@ async function loadMore() {
 
 async function loadDashboard() {
   try {
-    const [kids, latest] = await Promise.all([requestJson('/api/kids'), requestJson('/api/feed/latest-per-channel')]);
-    state.latestPerChannel = latest;
+    const kids = await requestJson('/api/kids');
+    state.kids = kids;
     renderKids(kids);
+
+    const latestParams = new URLSearchParams();
+    if (state.kidId) latestParams.set('kid_id', String(state.kidId));
+    const latest = await requestJson(`/api/feed/latest-per-channel?${latestParams.toString()}`);
+    state.latestPerChannel = latest;
     renderCategories();
     await loadMore();
   } catch (error) {

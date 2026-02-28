@@ -12,6 +12,10 @@ class Kid(SQLModel, table=True):
     name: str
     avatar_url: str | None = None
     daily_limit_minutes: int | None = None
+    bedtime_start: str | None = None
+    bedtime_end: str | None = None
+    weekend_bonus_minutes: int | None = None
+    require_parent_approval: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

@@ -27,6 +27,9 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
         channel_columns = {
             row[1] for row in session.exec(text("PRAGMA table_info(channels)"))
         }
+        kid_columns = {
+            row[1] for row in session.exec(text("PRAGMA table_info(kids)"))
+        }
         indexes = {
             row[1] for row in session.exec(text("PRAGMA index_list('videos')"))
         }
@@ -43,10 +46,20 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
         "blocked_reason",
     }.issubset(channel_columns)
     assert "idx_videos_channel_published_at" in indexes
+    assert {
+        "bedtime_start",
+        "bedtime_end",
+        "weekend_bonus_minutes",
+        "require_parent_approval",
+    }.issubset(kid_columns)
 
     with Session(engine) as session:
         channel_indexes = {
             row[1] for row in session.exec(text("PRAGMA index_list('channels')"))
         }
+        kid_indexes = {
+            row[1] for row in session.exec(text("PRAGMA index_list('kids')"))
+        }
 
     assert "idx_channels_allowed_blocked_enabled" in channel_indexes
+    assert "idx_kids_require_parent_approval" in kid_indexes

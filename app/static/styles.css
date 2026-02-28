@@ -719,3 +719,15 @@ td:last-child { border-radius: 0 12px 12px 0; }
   flex-wrap: wrap;
   margin-bottom: 0.7rem;
 }
+
+.parent-control-note {
+  padding: 0.9rem 1rem;
+  margin-bottom: var(--space-3);
+  background: #f4f0ff;
+  color: #4f3b98;
+  font-weight: 700;
+}
+
+.kids-switch-field {
+  min-height: 2.5rem;
+}

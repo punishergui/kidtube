@@ -3,6 +3,16 @@ import { formatDate, requestJson, showToast } from '/static/app.js';
 const body = document.getElementById('kids-body');
 const form = document.getElementById('add-kid-form');
 
+function hhmmValue(raw) {
+  const value = String(raw || '').trim();
+  return value || null;
+}
+
+function numberOrNull(raw) {
+  const value = String(raw || '').trim();
+  return value ? Number(value) : null;
+}
+
 function row(kid) {
   return `
     <article class="panel admin-card kid-admin-card">
@@ -15,6 +25,23 @@ function row(kid) {
         <label>
           Daily limit minutes
           <input data-limit="${kid.id}" type="number" min="1" value="${kid.daily_limit_minutes || ''}" />
+        </label>
+        <label>
+          Bedtime start (HH:MM)
+          <input data-bedtime-start="${kid.id}" placeholder="20:30" value="${kid.bedtime_start || ''}" />
+        </label>
+        <label>
+          Bedtime end (HH:MM)
+          <input data-bedtime-end="${kid.id}" placeholder="06:30" value="${kid.bedtime_end || ''}" />
+        </label>
+        <label>
+          Weekend bonus minutes
+          <input data-weekend-bonus="${kid.id}" type="number" min="0" value="${kid.weekend_bonus_minutes || ''}" />
+        </label>
+        <label class="switch-field kids-switch-field">
+          Parent approval required
+          <input data-parent-approval="${kid.id}" type="checkbox" ${kid.require_parent_approval ? 'checked' : ''} />
+          <span class="slider"></span>
         </label>
       </div>
       <div class="avatar-upload-row">
@@ -67,8 +94,18 @@ async function loadKids() {
     button.addEventListener('click', async () => {
       const id = Number(button.dataset.save);
       const limitInput = body.querySelector(`input[data-limit="${id}"]`);
-      const value = String(limitInput?.value || '').trim();
-      const payload = { daily_limit_minutes: value ? Number(value) : null };
+      const bedtimeStartInput = body.querySelector(`input[data-bedtime-start="${id}"]`);
+      const bedtimeEndInput = body.querySelector(`input[data-bedtime-end="${id}"]`);
+      const weekendBonusInput = body.querySelector(`input[data-weekend-bonus="${id}"]`);
+      const parentApprovalInput = body.querySelector(`input[data-parent-approval="${id}"]`);
+
+      const payload = {
+        daily_limit_minutes: numberOrNull(limitInput?.value),
+        bedtime_start: hhmmValue(bedtimeStartInput?.value),
+        bedtime_end: hhmmValue(bedtimeEndInput?.value),
+        weekend_bonus_minutes: numberOrNull(weekendBonusInput?.value),
+        require_parent_approval: Boolean(parentApprovalInput?.checked),
+      };
 
       try {
         await requestJson(`/api/kids/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
@@ -110,10 +147,13 @@ async function loadKids() {
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   const data = new FormData(form);
-  const limitRaw = String(data.get('daily_limit_minutes') || '').trim();
   const payload = {
     name: String(data.get('name') || '').trim(),
-    daily_limit_minutes: limitRaw ? Number(limitRaw) : null,
+    daily_limit_minutes: numberOrNull(data.get('daily_limit_minutes')),
+    bedtime_start: hhmmValue(data.get('bedtime_start')),
+    bedtime_end: hhmmValue(data.get('bedtime_end')),
+    weekend_bonus_minutes: numberOrNull(data.get('weekend_bonus_minutes')),
+    require_parent_approval: data.get('require_parent_approval') === 'on',
   };
 
   try {

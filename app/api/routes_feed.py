@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session
 
+from app.db.models import Kid
 from app.db.session import get_session
+from app.services.parent_controls import can_watch_now
 
 router = APIRouter()
 
@@ -34,8 +36,17 @@ def list_feed(
     offset: int = Query(default=0, ge=0),
     cursor: str | None = Query(default=None),
 ) -> list[FeedItem]:
-    del kid_id
+    kid: Kid | None = None
     del cursor
+
+    if kid_id is not None:
+        kid = session.get(Kid, kid_id)
+        if not kid:
+            raise HTTPException(status_code=404, detail='Kid not found')
+
+        can_watch, _ = can_watch_now(session, kid)
+        if not can_watch:
+            return []
 
     query = text(
         """
@@ -69,11 +80,32 @@ def list_feed(
             "offset": offset,
         },
     ).mappings().all()
-    return [FeedItem.model_validate(row) for row in rows]
+
+    items = [FeedItem.model_validate(row) for row in rows]
+    if kid and kid.require_parent_approval:
+        approved_rows = session.execute(
+            text(
+                """
+                SELECT youtube_id
+                FROM requests
+                WHERE type = 'video'
+                  AND kid_id = :kid_id
+                  AND status = 'approved'
+                """
+            ),
+            {'kid_id': kid.id},
+        ).all()
+        approved_ids = {row[0] for row in approved_rows}
+        items = [item for item in items if item.video_youtube_id in approved_ids]
+
+    return items
 
 
 @router.get("/latest-per-channel", response_model=list[FeedItem])
-def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem]:
+def latest_per_channel(
+    session: Session = Depends(get_session),
+    kid_id: int | None = Query(default=None),
+) -> list[FeedItem]:
     query = text(
         """
         SELECT
@@ -101,5 +133,34 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
         ORDER BY v.published_at DESC
         """
     )
+    if kid_id is not None:
+        kid = session.get(Kid, kid_id)
+        if not kid:
+            raise HTTPException(status_code=404, detail='Kid not found')
+
+        can_watch, _ = can_watch_now(session, kid)
+        if not can_watch:
+            return []
+    else:
+        kid = None
+
     rows = session.execute(query).mappings().all()
-    return [FeedItem.model_validate(row) for row in rows]
+    items = [FeedItem.model_validate(row) for row in rows]
+
+    if kid and kid.require_parent_approval:
+        approved_rows = session.execute(
+            text(
+                """
+                SELECT youtube_id
+                FROM requests
+                WHERE type = 'video'
+                  AND kid_id = :kid_id
+                  AND status = 'approved'
+                """
+            ),
+            {'kid_id': kid.id},
+        ).all()
+        approved_ids = {row[0] for row in approved_rows}
+        items = [item for item in items if item.video_youtube_id in approved_ids]
+
+    return items

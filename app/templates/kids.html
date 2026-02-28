@@ -7,6 +7,14 @@
 <form id="add-kid-form" class="panel form-panel">
   <input name="name" placeholder="Name" required />
   <input name="daily_limit_minutes" type="number" min="1" placeholder="Daily limit minutes" />
+  <input name="bedtime_start" placeholder="Bedtime start (HH:MM)" />
+  <input name="bedtime_end" placeholder="Bedtime end (HH:MM)" />
+  <input name="weekend_bonus_minutes" type="number" min="0" placeholder="Weekend bonus minutes" />
+  <label class="switch-field kids-switch-field">
+    Parent approval required
+    <input name="require_parent_approval" type="checkbox" />
+    <span class="slider"></span>
+  </label>
   <button type="submit" class="btn-primary">Add Kid</button>
 </form>
 <section id="kids-body" class="admin-list"></section>

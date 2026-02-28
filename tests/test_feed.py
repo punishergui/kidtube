@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlmodel import Session, create_engine
 
 from app.db.migrate import run_migrations
-from app.db.models import Channel, Video
+from app.db.models import Channel, Kid, Video
 from app.db.session import get_session
 from app.main import app
 
@@ -252,3 +252,108 @@ def test_blocking_channel_purges_cached_videos_and_delete_channel(tmp_path: Path
 
     assert feed_response.status_code == 200
     assert feed_response.json() == []
+
+
+def test_feed_returns_empty_when_kid_is_in_bedtime_window(tmp_path: Path) -> None:
+    db_path = tmp_path / 'feed-bedtime.db'
+    engine = create_engine(f'sqlite:///{db_path}')
+    run_migrations(engine, Path('app/db/migrations'))
+
+    now = datetime.now(timezone.utc)  # noqa: UP017
+    current_hhmm = now.strftime('%H:%M')
+
+    with Session(engine) as session:
+        kid = Kid(name='Nia', bedtime_start='00:00', bedtime_end='23:59')
+        session.add(kid)
+
+        channel = Channel(
+            youtube_id='UCbedtime000000000000000',
+            title='Bedtime Channel',
+            resolve_status='ok',
+            allowed=True,
+        )
+        session.add(channel)
+        session.commit()
+        session.refresh(kid)
+        session.refresh(channel)
+
+        session.add(
+            Video(
+                youtube_id='vid-bedtime',
+                channel_id=channel.id,
+                title='Sleep Time',
+                thumbnail_url='https://img.example/bed.jpg',
+                published_at=now,
+            )
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            response = client.get(f'/api/feed?kid_id={kid.id}')
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert current_hhmm
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_feed_requires_approved_videos_when_parent_approval_enabled(tmp_path: Path) -> None:
+    db_path = tmp_path / 'feed-approval.db'
+    engine = create_engine(f'sqlite:///{db_path}')
+    run_migrations(engine, Path('app/db/migrations'))
+
+    now = datetime.now(timezone.utc)  # noqa: UP017
+
+    with Session(engine) as session:
+        kid = Kid(name='Milo', require_parent_approval=True)
+        channel = Channel(
+            youtube_id='UCapprove000000000000000',
+            title='Approval Channel',
+            resolve_status='ok',
+            allowed=True,
+        )
+        session.add(kid)
+        session.add(channel)
+        session.commit()
+        session.refresh(kid)
+        session.refresh(channel)
+
+        session.add(
+            Video(
+                youtube_id='vid-approved',
+                channel_id=channel.id,
+                title='Approved Video',
+                thumbnail_url='https://img.example/approved.jpg',
+                published_at=now,
+            )
+        )
+        session.add(
+            Video(
+                youtube_id='vid-not-approved',
+                channel_id=channel.id,
+                title='Pending Video',
+                thumbnail_url='https://img.example/pending.jpg',
+                published_at=now - timedelta(minutes=1),
+            )
+        )
+        session.exec(
+            text(
+                """
+                INSERT INTO requests (type, youtube_id, kid_id, status)
+                VALUES ('video', 'vid-approved', :kid_id, 'approved')
+                """
+            ),
+            {'kid_id': kid.id},
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            response = client.get(f'/api/feed/latest-per-channel?kid_id={kid.id}')
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 200
+    assert [item['video_youtube_id'] for item in response.json()] == ['vid-approved']

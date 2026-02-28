@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from app.db.models import Kid
@@ -20,13 +20,21 @@ ALLOWED_AVATAR_TYPES = {
 class KidCreate(BaseModel):
     name: str
     avatar_url: str | None = None
-    daily_limit_minutes: int | None = None
+    daily_limit_minutes: int | None = Field(default=None, ge=1)
+    bedtime_start: str | None = Field(default=None, pattern=r'^\d{2}:\d{2}$')
+    bedtime_end: str | None = Field(default=None, pattern=r'^\d{2}:\d{2}$')
+    weekend_bonus_minutes: int | None = Field(default=None, ge=0)
+    require_parent_approval: bool = False
 
 
 class KidUpdate(BaseModel):
     name: str | None = None
     avatar_url: str | None = None
-    daily_limit_minutes: int | None = None
+    daily_limit_minutes: int | None = Field(default=None, ge=1)
+    bedtime_start: str | None = Field(default=None, pattern=r'^\d{2}:\d{2}$')
+    bedtime_end: str | None = Field(default=None, pattern=r'^\d{2}:\d{2}$')
+    weekend_bonus_minutes: int | None = Field(default=None, ge=0)
+    require_parent_approval: bool | None = None
 
 
 class KidRead(BaseModel):
@@ -34,6 +42,10 @@ class KidRead(BaseModel):
     name: str
     avatar_url: str | None
     daily_limit_minutes: int | None
+    bedtime_start: str | None
+    bedtime_end: str | None
+    weekend_bonus_minutes: int | None
+    require_parent_approval: bool
     created_at: datetime
 
 
