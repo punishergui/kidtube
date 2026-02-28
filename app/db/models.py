@@ -59,6 +59,7 @@ class WatchLog(SQLModel, table=True):
     video_id: int = Field(foreign_key="videos.id")
     seconds_watched: int
     category_id: int | None = Field(default=None, foreign_key="categories.id")
+    started_at: datetime = Field(default_factory=datetime.utcnow)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

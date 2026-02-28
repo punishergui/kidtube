@@ -48,7 +48,9 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
         "category_id",
     }.issubset(channel_columns)
     assert "idx_videos_channel_published_at" in indexes
-    assert {"seconds_watched", "created_at", "category_id"}.issubset(watch_log_columns)
+    assert {"seconds_watched", "created_at", "category_id", "started_at"}.issubset(
+        watch_log_columns
+    )
 
     with Session(engine) as session:
         channel_indexes = {
