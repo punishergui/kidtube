@@ -3,6 +3,8 @@ import { formatDate, requestJson, showToast } from '/static/app.js';
 const container = document.getElementById('watch-container');
 const youtubeId = container?.dataset.youtubeId;
 const embedOrigin = container?.dataset.embedOrigin;
+const startedAt = Date.now();
+let logged = false;
 
 let ytApiPromise;
 
@@ -141,5 +143,25 @@ async function loadVideo() {
     }
   }
 }
+
+async function logWatch() {
+  if (logged || !youtubeId) return;
+  try {
+    const sessionState = await requestJson('/api/session');
+    if (!sessionState.kid_id) return;
+    const seconds = Math.max(1, Math.round((Date.now() - startedAt) / 1000));
+    await requestJson('/api/playback/log', {
+      method: 'POST',
+      body: JSON.stringify({ kid_id: sessionState.kid_id, youtube_id: youtubeId, seconds_watched: seconds }),
+    });
+    logged = true;
+  } catch {
+    // Ignore logging errors on unload.
+  }
+}
+
+window.addEventListener('pagehide', () => {
+  void logWatch();
+});
 
 loadVideo();

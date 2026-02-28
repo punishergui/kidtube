@@ -37,7 +37,7 @@ function renderCategories() {
   }));
 
   categoriesBody.querySelectorAll('button[data-delete-category]').forEach((button) => button.addEventListener('click', async () => {
-    await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}`, { method: 'DELETE' });
+    try { await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?hard_delete=true`, { method: 'DELETE' }); } catch (error) { if (String(error.message).includes('archive')) { await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?archive=true`, { method: 'DELETE' }); showToast('Category archived (in use).'); } else { throw error; } }
     await loadCategories();
   }));
 }

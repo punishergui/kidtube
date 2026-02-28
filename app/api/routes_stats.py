@@ -3,12 +3,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
 
 router = APIRouter()
+
+
+class ShortsTogglePayload(BaseModel):
+    enabled: bool
 
 
 @router.get('/stats')
@@ -74,3 +79,25 @@ def watch_stats(
             for row in by_category
         ],
     }
+
+
+@router.get('/settings/shorts')
+def get_shorts_setting(session: Session = Depends(get_session)) -> dict[str, bool]:
+    row = session.execute(text("SELECT shorts_enabled FROM parent_settings WHERE id = 1")).first()
+    return {'enabled': bool(row[0]) if row else True}
+
+
+@router.put('/settings/shorts')
+def set_shorts_setting(
+    payload: ShortsTogglePayload,
+    session: Session = Depends(get_session),
+) -> dict[str, bool]:
+    session.execute(
+        text(
+            "INSERT INTO parent_settings(id, shorts_enabled) VALUES (1, :enabled) "
+            "ON CONFLICT(id) DO UPDATE SET shorts_enabled = :enabled"
+        ),
+        {'enabled': 1 if payload.enabled else 0},
+    )
+    session.commit()
+    return {'enabled': payload.enabled}

@@ -795,3 +795,26 @@ textarea:focus-visible {
   .kid-chip { min-height: 76px; }
   input, select, textarea, button, .btn-primary, .btn-secondary, .btn-soft { min-height: 44px; }
 }
+
+:root {
+  --bg-gradient-start: #121826;
+  --bg-gradient-end: #0b1020;
+  --surface: rgba(23, 31, 51, 0.88);
+  --surface-strong: #171f33;
+  --text: #ecf1ff;
+  --text-muted: #a5b1d6;
+  --border-soft: rgba(138, 160, 220, 0.25);
+  --shadow-soft: 0 14px 32px rgba(0, 0, 0, 0.45);
+}
+
+.channel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.9rem; }
+.shorts-grid .video-card { min-height: 320px; }
+.short-card .thumb, .shorts-grid .thumb { aspect-ratio: 9 / 16; object-fit: cover; }
+.pin-row { display: grid; grid-template-columns: 1fr auto; gap: .75rem; }
+.pin-input { min-height: 52px; font-size: 1.2rem; letter-spacing: 0.35rem; text-align: center; }
+button, .btn-primary, .btn-secondary, .btn-soft, input, select { min-height: 44px; }
+
+@media (min-width: 768px) {
+  .main-content { max-width: 1200px; }
+  .pin-gate { padding: 1rem; }
+}

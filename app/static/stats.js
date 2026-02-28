@@ -26,7 +26,7 @@ async function load() {
     const [kids, stats, watchLogs, searchLogs] = await Promise.all([
       requestJson('/api/kids'),
       requestJson(`/api/stats${kidId ? `?kid_id=${kidId}` : ''}`),
-      requestJson(`/api/logs/watch?limit=40${kidId ? `&kid_id=${kidId}` : ''}`),
+      requestJson(`/api/logs/recent?limit=40${kidId ? `&kid_id=${kidId}` : ''}`),
       requestJson(`/api/logs/search?limit=40${kidId ? `&kid_id=${kidId}` : ''}`),
     ]);
 
@@ -50,12 +50,12 @@ async function load() {
     );
 
     watchLogsWrap.innerHTML = renderTable(
-      watchLogs.map((row) => [row.kid_id, row.video_title || row.video_youtube_id || 'Unknown', asMinutes(row.seconds_watched), formatDate(row.created_at)]),
-      ['Kid', 'Video', 'Watched', 'At'],
+      watchLogs.map((row) => [row.kid_name || row.kid_id, row.video_title || 'Unknown', row.channel_title || 'Unknown channel', row.category_name || 'Uncategorized', asMinutes(row.seconds_watched), formatDate(row.created_at)]),
+      ['Kid', 'Video', 'Channel', 'Category', 'Watched', 'At'],
     );
 
     searchLogsWrap.innerHTML = renderTable(
-      searchLogs.map((row) => [row.kid_id, row.query, formatDate(row.created_at)]),
+      searchLogs.map((row) => [row.kid_name || row.kid_id, row.query, formatDate(row.created_at)]),
       ['Kid', 'Query', 'At'],
     );
   } catch (error) {

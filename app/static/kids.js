@@ -11,7 +11,7 @@ function scheduleRows(kid) {
       <h4>Allowed Schedule Windows</h4>
       <div class="inline-form">
         <select data-day="${kid.id}">
-          <option value="0">Mon</option><option value="1">Tue</option><option value="2">Wed</option><option value="3">Thu</option><option value="4">Fri</option><option value="5">Sat</option><option value="6">Sun</option>
+          <option value="0">Sun</option><option value="1">Mon</option><option value="2">Tue</option><option value="3">Wed</option><option value="4">Thu</option><option value="5">Fri</option><option value="6">Sat</option>
         </select>
         <input type="time" data-start="${kid.id}" required />
         <input type="time" data-end="${kid.id}" required />
@@ -66,7 +66,7 @@ function row(kid) {
         <button class="btn-soft" data-upload-avatar="${kid.id}">Upload avatar</button>
         <button class="btn-secondary" data-remove-avatar="${kid.id}">Remove avatar</button>
       </div>
-      <button class="btn-primary" data-save="${kid.id}">Save Kid Settings</button>
+      <div class="inline-form"><input data-pin="${kid.id}" type="password" inputmode="numeric" placeholder="Set PIN" /><button class="btn-soft" data-set-pin="${kid.id}" type="button">Set PIN</button><button class="btn-secondary" data-remove-pin="${kid.id}" type="button">Remove PIN</button></div><button class="btn-primary" data-save="${kid.id}">Save Kid Settings</button>
     </article>
   `;
 }
@@ -106,6 +106,19 @@ async function loadKids() {
     await fillKidExtras(kid.id);
   }
 
+
+  body.querySelectorAll('button[data-set-pin]').forEach((button) => button.addEventListener('click', async () => {
+    const kidId = Number(button.dataset.setPin);
+    const pin = body.querySelector(`[data-pin="${kidId}"]`)?.value || '';
+    await requestJson(`/api/kids/${kidId}/pin`, { method: 'PUT', body: JSON.stringify({ pin }) });
+    showToast('PIN saved.');
+  }));
+
+  body.querySelectorAll('button[data-remove-pin]').forEach((button) => button.addEventListener('click', async () => {
+    const kidId = Number(button.dataset.removePin);
+    await requestJson(`/api/kids/${kidId}/pin`, { method: 'DELETE' });
+    showToast('PIN removed.');
+  }));
   body.querySelectorAll('button[data-save]').forEach((button) => button.addEventListener('click', async () => {
     const id = Number(button.dataset.save);
     const payload = {

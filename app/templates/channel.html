@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Channel{% endblock %}
+{% block content %}
+<section class="page-head"><a class="btn-secondary" href="/">← Back</a></section>
+<section class="video-section">
+  <div class="section-head"><h2>Channel Videos</h2></div>
+  <section id="channel-video-grid" class="card-grid" data-channel-id="{{ channel_id }}"></section>
+</section>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/channel.js"></script>{% endblock %}

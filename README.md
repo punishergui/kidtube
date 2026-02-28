@@ -171,3 +171,12 @@ Verification checklist:
 - **YouTube embeds:** the watch player uses `https://www.youtube-nocookie.com/embed/...`.
 - **CSP headers:** UI responses set CSP in `app/ui.py`; frame sources are restricted to `youtube-nocookie`, while scripts/styles stay self-hosted (plus YouTube iframe API script).
 - **Container user:** Docker image is non-root and writes only to writable paths (`/data`, `app/static/uploads`).
+
+## New Phase 12 APIs
+
+- `GET /api/search?q=...&kid_id=...` searches YouTube videos for kids, logs the query, and returns `duration_seconds` + `is_short` when available.
+- `GET /api/channels/allowed?kid_id=...` returns globally allowed channels.
+- `GET /api/channels/{channel_id}/videos?kid_id=...` returns latest videos for a channel.
+- `GET /api/logs/recent?kid_id=&limit=` returns joined watch logs including `kid_name`, channel/category names, and watched duration.
+- `PUT /api/kids/{kid_id}/pin` and `DELETE /api/kids/{kid_id}/pin` set/remove kid PINs. PINs are stored as SHA-256 hashes with app secret salt.
+- `GET /api/feed/shorts` returns short-form feed rows, controlled by `parent_settings.shorts_enabled`.

@@ -50,6 +50,8 @@ class Video(SQLModel, table=True):
     title: str
     thumbnail_url: str
     published_at: datetime
+    duration_seconds: int | None = None
+    is_short: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

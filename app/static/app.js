@@ -59,13 +59,10 @@ async function initSearchLogging() {
         showToast('Select a kid profile before searching.', 'error');
         return;
       }
-      await requestJson('/api/logs/search', {
-        method: 'POST',
-        body: JSON.stringify({ kid_id: sessionState.kid_id, query }),
-      });
-      showToast(`Search logged for "${query}".`);
+      const results = await requestJson(`/api/search?q=${encodeURIComponent(query)}&kid_id=${sessionState.kid_id}`);
+      window.dispatchEvent(new CustomEvent('kidtube:search-results', { detail: { query, results, kidId: sessionState.kid_id } }));
     } catch (error) {
-      showToast(`Unable to log search: ${error.message}`, 'error');
+      showToast(`Unable to search: ${error.message}`, 'error');
     }
   });
 }

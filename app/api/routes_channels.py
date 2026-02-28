@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -153,3 +153,53 @@ def delete_channel(channel_id: int, session: Session = Depends(get_session)) -> 
     session.delete(channel)
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get('/allowed')
+def list_allowed_channels(
+    kid_id: int | None = Query(default=None),
+    session: Session = Depends(get_session),
+) -> list[dict[str, object | None]]:
+    del kid_id
+    rows = session.execute(
+        text(
+            """
+            SELECT id, youtube_id, title, avatar_url, banner_url, category, category_id
+            FROM channels
+            WHERE enabled = 1 AND allowed = 1 AND blocked = 0
+            ORDER BY COALESCE(title, youtube_id)
+            """
+        )
+    ).mappings().all()
+    return [dict(row) for row in rows]
+
+
+@router.get('/{channel_youtube_id}/videos')
+def channel_videos(
+    channel_youtube_id: str,
+    kid_id: int | None = Query(default=None),
+    limit: int = Query(default=30, ge=1, le=100),
+    session: Session = Depends(get_session),
+) -> list[dict[str, object | None]]:
+    del kid_id
+    rows = session.execute(
+        text(
+            """
+            SELECT
+                v.youtube_id AS video_youtube_id,
+                v.title AS video_title,
+                v.thumbnail_url AS video_thumbnail_url,
+                v.published_at AS video_published_at
+            FROM videos v
+            JOIN channels c ON c.id = v.channel_id
+            WHERE c.youtube_id = :channel_youtube_id
+              AND c.enabled = 1
+              AND c.allowed = 1
+              AND c.blocked = 0
+            ORDER BY v.published_at DESC
+            LIMIT :limit
+            """
+        ),
+        {"channel_youtube_id": channel_youtube_id, "limit": limit},
+    ).mappings().all()
+    return [dict(row) for row in rows]
