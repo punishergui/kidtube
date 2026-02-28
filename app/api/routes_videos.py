@@ -20,7 +20,7 @@ _LEGACY_REASON_DETAILS = {
 }
 
 
-def _detail_for_reason(reason: str) -> str:
+def _legacy_detail_for_reason(reason: str) -> str:
     return _LEGACY_REASON_DETAILS.get(reason, reason)
 
 
@@ -75,6 +75,6 @@ def get_video(
             now=datetime.now(timezone.utc),  # noqa: UP017
         )
         if not allowed and reason:
-            raise HTTPException(status_code=403, detail=_detail_for_reason(reason))
+            raise HTTPException(status_code=403, detail=_legacy_detail_for_reason(reason))
 
     return VideoRead.model_validate(row)
