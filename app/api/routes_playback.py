@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -40,7 +40,7 @@ def log_playback(
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    started_at = payload.started_at or datetime.now(datetime.UTC)
+    started_at = payload.started_at or datetime.now(timezone.utc)  # noqa: UP017
     watch_log = WatchLog(
         kid_id=payload.kid_id,
         video_id=video["video_id"],

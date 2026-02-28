@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -36,7 +36,7 @@ def test_latest_per_channel_uses_cached_db_only(monkeypatch, tmp_path: Path) -> 
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
 
-    now = datetime.now(datetime.UTC)  # noqa: UP017
+    now = datetime.now(timezone.utc)  # noqa: UP017
 
     with Session(engine) as session:
         session.execute(text("DELETE FROM videos"))
@@ -121,7 +121,7 @@ def test_feed_respects_allowed_and_blocked_flags(tmp_path: Path) -> None:
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
 
-    now = datetime.now(datetime.UTC)  # noqa: UP017
+    now = datetime.now(timezone.utc)  # noqa: UP017
 
     with Session(engine) as session:
         c_allowed = Channel(
@@ -196,7 +196,7 @@ def test_blocking_channel_purges_cached_videos_and_delete_channel(tmp_path: Path
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
 
-    now = datetime.now(datetime.UTC)  # noqa: UP017
+    now = datetime.now(timezone.utc)  # noqa: UP017
 
     with Session(engine) as session:
         channel = Channel(
@@ -259,7 +259,7 @@ def test_feed_hides_channels_in_disabled_categories(tmp_path: Path) -> None:
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
 
-    now = datetime.now(datetime.UTC)  # noqa: UP017
+    now = datetime.now(timezone.utc)  # noqa: UP017
 
     with Session(engine) as session:
         education = session.execute(
@@ -346,7 +346,7 @@ def test_feed_returns_empty_when_kid_is_over_category_limit(tmp_path: Path) -> N
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
 
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(timezone.utc)  # noqa: UP017
 
     with Session(engine) as session:
         fun = session.execute(text("SELECT id FROM categories WHERE name = 'fun'")).one()[0]

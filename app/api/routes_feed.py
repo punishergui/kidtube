@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -60,7 +60,7 @@ def list_feed(
             session,
             kid_id=kid_id,
             category_id=category_id,
-            now=datetime.now(datetime.UTC),
+            now=datetime.now(timezone.utc),  # noqa: UP017
         )
         if remaining_seconds is not None and remaining_seconds <= 0:
             return []

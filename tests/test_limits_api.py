@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -49,7 +49,7 @@ def test_playback_log_records_category_id_from_video_channel(tmp_path: Path) -> 
                 channel_id=channel.id,
                 title="Play log video",
                 thumbnail_url="https://img.example/play-log.jpg",
-                published_at=datetime.now(datetime.UTC),
+                published_at=datetime.now(timezone.utc),  # noqa: UP017
             )
         )
         session.commit()
@@ -92,7 +92,7 @@ def test_video_lookup_returns_403_when_kid_over_category_limit(tmp_path: Path) -
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
 
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(timezone.utc)  # noqa: UP017
 
     with Session(engine) as session:
         fun = session.execute(text("SELECT id FROM categories WHERE name = 'fun'")).one()[0]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -8,7 +8,9 @@ from sqlmodel import Session
 
 
 def _utc_day_bounds(now: datetime) -> tuple[datetime, datetime]:
-    now_utc = now.astimezone(datetime.UTC) if now.tzinfo else now.replace(tzinfo=datetime.UTC)
+    now_utc = now.astimezone(timezone.utc) if now.tzinfo else now.replace(  # noqa: UP017
+        tzinfo=timezone.utc  # noqa: UP017
+    )
     day_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
     return day_start, day_end

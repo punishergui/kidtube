@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -55,7 +55,7 @@ def get_video(
             session,
             kid_id=kid_id,
             category_id=row["category_id"],
-            now=datetime.now(datetime.UTC),
+            now=datetime.now(timezone.utc),  # noqa: UP017
         )
 
     return VideoRead.model_validate(row)
