@@ -15,11 +15,15 @@
   </div>
   <div id="kid-selector" class="kid-selector"></div>
   <div id="pin-gate" class="pin-gate" hidden>
-    <p class="small">Enter PIN to continue</p>
+    <div class="pin-head">
+      <p class="small">Enter PIN to continue</p>
+      <button id="pin-cancel" class="btn-secondary" type="button">Cancel</button>
+    </div>
     <div class="pin-row">
-      <input id="pin-input" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" />
+      <input id="pin-input" class="pin-input" type="password" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="PIN" />
       <button id="pin-submit" class="btn-primary" type="button">Unlock</button>
     </div>
+    <p id="pin-error" class="small pin-error" hidden>Wrong PIN. Try again.</p>
   </div>
 </section>
 

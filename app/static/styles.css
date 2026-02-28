@@ -728,3 +728,70 @@ td:last-child { border-radius: 0 12px 12px 0; }
   flex-wrap: wrap;
   margin-bottom: 0.7rem;
 }
+
+.btn-danger { background: linear-gradient(135deg, #ef476f, #d7263d); color: #fff; }
+button:focus-visible,
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-soft:focus-visible,
+.pill:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(95, 109, 255, 0.45);
+  outline-offset: 2px;
+}
+
+.touch-section {
+  padding: 0.9rem;
+  border-radius: 14px;
+  background: #f6f8ff;
+  margin: 0.8rem 0;
+}
+
+.touch-section h4 { margin: 0 0 0.5rem; }
+
+.inline-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.pin-gate {
+  margin-top: 0.75rem;
+  padding: 0.8rem;
+  border-radius: 18px;
+  background: #f5f7ff;
+  animation: fadeUp 0.25s ease;
+}
+
+.pin-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.pin-input { font-size: 1.2rem; letter-spacing: 0.2rem; min-height: 52px; }
+.pin-error { color: #b0004f; margin: 0.4rem 0 0; }
+.btn-link { background: transparent; color: var(--primary); border-radius: 8px; padding: 0.2rem 0.4rem; }
+
+.stats-summary { padding: var(--space-4); margin-bottom: var(--space-3); }
+.stat-card { padding: 0.9rem; border-radius: 14px; background: #f5f7ff; }
+
+@keyframes fadeUp {
+  from { transform: translateY(4px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@media (max-width: 900px) {
+  .main-content { padding: var(--space-3); }
+  .table-wrap { overflow-x: auto; }
+  table { min-width: 640px; }
+  td, th { padding: 0.8rem 0.6rem; font-size: 0.98rem; }
+  .kid-selector { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .kid-chip { min-height: 76px; }
+  input, select, textarea, button, .btn-primary, .btn-secondary, .btn-soft { min-height: 44px; }
+}
