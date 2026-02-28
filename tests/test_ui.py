@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -49,3 +51,9 @@ def test_ui_sets_csp_to_youtube_nocookie_only() -> None:
     csp = response.headers['content-security-policy']
     assert 'frame-src https://www.youtube-nocookie.com' in csp
     assert 'youtube.com/embed' not in csp
+
+
+def test_watch_js_uses_youtube_nocookie_embed() -> None:
+    watch_js = Path("app/static/watch.js").read_text()
+    assert "youtube-nocookie.com/embed" in watch_js
+    assert "youtube.com/embed" not in watch_js
