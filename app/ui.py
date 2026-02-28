@@ -34,7 +34,7 @@ def render_page(request: Request, template_name: str, **context: str) -> HTMLRes
     return response
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, response_model=None)
 def ui_profiles(request: Request) -> HTMLResponse | RedirectResponse:
     if request.session.get("kid_id"):
         return RedirectResponse(url="/dashboard", status_code=307)
@@ -45,7 +45,7 @@ def ui_profiles(request: Request) -> HTMLResponse | RedirectResponse:
     return render_page(request, "profiles.html", kids=kids)
 
 
-@router.get("/dashboard", response_class=HTMLResponse)
+@router.get("/dashboard", response_class=HTMLResponse, response_model=None)
 def ui_dashboard(request: Request) -> HTMLResponse | RedirectResponse:
     kid_id = request.session.get("kid_id")
     if not kid_id:
