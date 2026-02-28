@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from app.db.models import Channel
 from app.db.session import get_session
-from app.services.limits import assert_schedule_allowed
+from app.services.limits import check_access
 from app.services.sync import store_videos
 from app.services.youtube import fetch_latest_videos, resolve_channel
 
@@ -161,8 +161,11 @@ def list_allowed_channels(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
+    now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
-        assert_schedule_allowed(session, kid_id=kid_id, now=datetime.now(timezone.utc))  # noqa: UP017
+        allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
+        if not allowed:
+            return []
 
     rows = session.execute(
         text(
@@ -174,7 +177,20 @@ def list_allowed_channels(
             """
         )
     ).mappings().all()
-    return [dict(row) for row in rows]
+    if kid_id is None:
+        return [dict(row) for row in rows]
+
+    filtered: list[dict[str, object | None]] = []
+    for row in rows:
+        allowed, _reason, _details = check_access(
+            session,
+            kid_id=kid_id,
+            channel_id=str(row["youtube_id"]),
+            now=now,
+        )
+        if allowed:
+            filtered.append(dict(row))
+    return filtered
 
 
 
@@ -182,6 +198,7 @@ def list_allowed_channels(
 @router.get('/youtube/{channel_youtube_id}')
 def channel_detail(
     channel_youtube_id: str,
+    kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> dict[str, object | None]:
     row = session.execute(
@@ -200,6 +217,15 @@ def channel_detail(
     ).mappings().first()
     if not row:
         raise HTTPException(status_code=404, detail="Channel not found")
+    if kid_id is not None:
+        allowed, reason, _details = check_access(
+            session,
+            kid_id=kid_id,
+            channel_id=channel_youtube_id,
+            now=datetime.now(timezone.utc),  # noqa: UP017
+        )
+        if not allowed and reason:
+            raise HTTPException(status_code=403, detail=reason)
     return dict(row)
 @router.get('/{channel_youtube_id}/videos')
 def channel_videos(
@@ -208,8 +234,11 @@ def channel_videos(
     limit: int = Query(default=30, ge=1, le=100),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
+    now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
-        assert_schedule_allowed(session, kid_id=kid_id, now=datetime.now(timezone.utc))  # noqa: UP017
+        allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
+        if not allowed:
+            return []
 
     rows = session.execute(
         text(
@@ -231,4 +260,18 @@ def channel_videos(
         ),
         {"channel_youtube_id": channel_youtube_id, "limit": limit},
     ).mappings().all()
-    return [dict(row) for row in rows]
+    if kid_id is None:
+        return [dict(row) for row in rows]
+    filtered: list[dict[str, object | None]] = []
+    for row in rows:
+        allowed, _reason, _details = check_access(
+            session,
+            kid_id=kid_id,
+            video_id=str(row["video_youtube_id"]),
+            channel_id=channel_youtube_id,
+            title=str(row["video_title"]),
+            now=now,
+        )
+        if allowed:
+            filtered.append(dict(row))
+    return filtered

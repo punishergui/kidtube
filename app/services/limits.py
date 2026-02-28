@@ -6,6 +6,15 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlmodel import Session
 
+ACCESS_REASON_DAILY_LIMIT = "daily_limit"
+ACCESS_REASON_CATEGORY_LIMIT = "category_limit"
+ACCESS_REASON_SCHEDULE = "schedule"
+ACCESS_REASON_BEDTIME = "bedtime"
+ACCESS_REASON_PENDING_APPROVAL = "pending_approval"
+ACCESS_REASON_BLOCKED_CHANNEL = "blocked_channel"
+ACCESS_REASON_WORD_FILTER = "word_filter"
+ACCESS_REASON_SHORTS_DISABLED = "shorts_disabled"
+
 
 def _utc_day_bounds(now: datetime) -> tuple[datetime, datetime]:
     now_utc = now.astimezone(timezone.utc) if now.tzinfo else now.replace(  # noqa: UP017
@@ -202,3 +211,142 @@ def assert_under_limit(
     remaining_seconds = remaining_seconds_for(session, kid_id, category_id, now)
     if remaining_seconds is not None and remaining_seconds <= 0:
         raise HTTPException(status_code=403, detail="Daily watch limit reached")
+
+
+def _parent_blocked_words(session: Session) -> list[str]:
+    row = session.execute(text("SELECT blocked_words FROM parent_settings WHERE id = 1")).first()
+    if not row or not row[0]:
+        return []
+    raw = str(row[0]).strip()
+    if not raw:
+        return []
+    return [word.strip().lower() for word in raw.split(",") if word.strip()]
+
+
+def check_access(
+    session: Session,
+    kid_id: int,
+    *,
+    video_id: str | None = None,
+    channel_id: str | None = None,
+    category_id: int | None = None,
+    is_shorts: bool = False,
+    title: str | None = None,
+    now: datetime | None = None,
+) -> tuple[bool, str | None, dict[str, object]]:
+    now = now or datetime.now(timezone.utc)  # noqa: UP017
+
+    if not is_in_any_schedule(session, kid_id=kid_id, now=now):
+        return False, ACCESS_REASON_SCHEDULE, {}
+    if is_in_bedtime(session, kid_id=kid_id, now=now):
+        return False, ACCESS_REASON_BEDTIME, {}
+
+    resolved = None
+    if video_id:
+        resolved = session.execute(
+            text(
+                """
+                SELECT
+                    v.title AS video_title,
+                    v.is_short AS video_is_short,
+                    c.youtube_id AS channel_youtube_id,
+                    c.category_id AS category_id,
+                    c.allowed AS channel_allowed,
+                    c.blocked AS channel_blocked
+                FROM videos v
+                JOIN channels c ON c.id = v.channel_id
+                WHERE v.youtube_id = :video_id
+                LIMIT 1
+                """
+            ),
+            {"video_id": video_id},
+        ).mappings().first()
+        if resolved:
+            if category_id is None:
+                category_id = resolved["category_id"]
+            if not channel_id:
+                channel_id = resolved["channel_youtube_id"]
+            if not title:
+                title = resolved["video_title"]
+            is_shorts = bool(resolved["video_is_short"])
+
+    remaining_seconds = remaining_seconds_for(session, kid_id=kid_id, category_id=category_id, now=now)
+    if remaining_seconds is not None and remaining_seconds <= 0:
+        category_limit_exists = False
+        if category_id is not None:
+            category_limit_exists = (
+                session.execute(
+                    text(
+                        """
+                        SELECT 1 FROM kid_category_limits
+                        WHERE kid_id = :kid_id AND category_id = :category_id
+                        LIMIT 1
+                        """
+                    ),
+                    {"kid_id": kid_id, "category_id": category_id},
+                ).first()
+                is not None
+            )
+        return (
+            False,
+            ACCESS_REASON_CATEGORY_LIMIT if category_limit_exists else ACCESS_REASON_DAILY_LIMIT,
+            {"remaining_seconds": int(remaining_seconds)},
+        )
+
+    if is_shorts:
+        shorts_enabled = session.execute(
+            text("SELECT shorts_enabled FROM parent_settings WHERE id = 1")
+        ).first()
+        if shorts_enabled and int(shorts_enabled[0]) == 0:
+            return False, ACCESS_REASON_SHORTS_DISABLED, {}
+
+    if channel_id:
+        channel_row = session.execute(
+            text(
+                """
+                SELECT allowed, blocked
+                FROM channels
+                WHERE youtube_id = :channel_id
+                LIMIT 1
+                """
+            ),
+            {"channel_id": channel_id},
+        ).first()
+        if channel_row and int(channel_row[1]) == 1:
+            return False, ACCESS_REASON_BLOCKED_CHANNEL, {}
+
+    lowered_title = (title or "").lower()
+    for blocked_word in _parent_blocked_words(session):
+        if blocked_word and blocked_word in lowered_title:
+            return False, ACCESS_REASON_WORD_FILTER, {"word": blocked_word}
+
+    if video_id:
+        channel_allowed = bool(resolved["channel_allowed"]) if resolved else False
+        video_approved = (
+            session.execute(
+                text("SELECT 1 FROM video_approvals WHERE youtube_id = :youtube_id LIMIT 1"),
+                {"youtube_id": video_id},
+            ).first()
+            is not None
+        )
+        if not channel_allowed and not video_approved:
+            request_row = session.execute(
+                text(
+                    """
+                    SELECT status
+                    FROM requests
+                    WHERE kid_id = :kid_id
+                      AND (
+                        (type = 'video' AND youtube_id = :video_id)
+                        OR (type = 'channel' AND youtube_id = :channel_id)
+                      )
+                    ORDER BY created_at DESC, id DESC
+                    LIMIT 1
+                    """
+                ),
+                {"kid_id": kid_id, "video_id": video_id, "channel_id": channel_id},
+            ).first()
+            request_status = str(request_row[0]) if request_row else "none"
+            return False, ACCESS_REASON_PENDING_APPROVAL, {"request_status": request_status}
+
+    return True, None, {}

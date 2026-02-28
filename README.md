@@ -183,3 +183,6 @@ Verification checklist:
 - `GET /api/feed/shorts?kid_id=...` returns short-form feed rows, controlled by `parent_settings.shorts_enabled` and kid schedule checks.
 - `GET /api/feed/latest-per-channel?kid_id=...` returns one latest item per allowed channel with optional kid schedule checks.
 - `POST /api/playback/watch/log` accepts heartbeat watch deltas (`kid_id`, `video_id`, `seconds_delta`) for reliable watch logging during playback.
+- `GET /api/requests?status=pending|approved|denied` returns admin approval queue rows.
+- `POST /api/requests/{id}/approve` and `POST /api/requests/{id}/deny` resolve request state from Admin UI.
+- `GET /admin/approvals` provides the Admin approvals queue page.

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Approvals{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>Approvals</h1>
+    <p class="small">Review and resolve kid requests.</p>
+  </div>
+</section>
+
+<section class="panel">
+  <div style="display:flex;gap:0.5rem;margin-bottom:0.75rem;">
+    <button class="btn-secondary" data-status-tab="pending">Pending</button>
+    <button class="btn-secondary" data-status-tab="approved">Approved</button>
+    <button class="btn-secondary" data-status-tab="denied">Denied</button>
+  </div>
+  <div id="approvals-list"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script type="module" src="/static/approvals.js"></script>
+{% endblock %}

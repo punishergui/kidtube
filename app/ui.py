@@ -12,7 +12,14 @@ from sqlmodel import Session, select
 
 from app.db.models import Kid
 from app.db.session import engine
-from app.services.limits import assert_schedule_allowed, assert_under_limit
+from app.services.limits import (
+    ACCESS_REASON_BEDTIME,
+    ACCESS_REASON_CATEGORY_LIMIT,
+    ACCESS_REASON_DAILY_LIMIT,
+    ACCESS_REASON_PENDING_APPROVAL,
+    ACCESS_REASON_SCHEDULE,
+    check_access,
+)
 
 router = APIRouter()
 
@@ -83,6 +90,13 @@ def ui_admin_channels(request: Request) -> HTMLResponse:
     return render_page(request, 'channels.html', page='channels', nav_mode='admin')
 
 
+
+
+@router.get('/admin/approvals', response_class=HTMLResponse)
+def ui_admin_approvals(request: Request) -> HTMLResponse:
+    return render_page(request, 'approvals.html', page='approvals', nav_mode='admin')
+
+
 @router.get('/admin/kids', response_class=HTMLResponse)
 def ui_admin_kids(request: Request) -> HTMLResponse:
     return render_page(request, 'kids.html', page='kids', nav_mode='admin')
@@ -126,41 +140,21 @@ def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectRespon
             request.session.pop("pending_kid_id", None)
             return RedirectResponse(url="/", status_code=307)
 
-        now = datetime.now(timezone.utc)  # noqa: UP017
-
-        try:
-            assert_schedule_allowed(session, kid_id=kid_id, now=now)
-        except HTTPException as exc:
-            if exc.status_code == 403:
+        allowed, reason, _details = check_access(
+            session,
+            kid_id=kid_id,
+            video_id=youtube_id,
+            now=datetime.now(timezone.utc),  # noqa: UP017
+        )
+        if not allowed and reason:
+            if reason in {ACCESS_REASON_SCHEDULE, ACCESS_REASON_BEDTIME}:
                 query = urlencode({"unlock_time": "your allowed schedule"})
                 return RedirectResponse(url=f"/blocked/schedule?{query}", status_code=307)
-            raise
-
-        video = session.execute(
-            text(
-                """
-                SELECT c.category_id
-                FROM videos v
-                JOIN channels c ON c.id = v.channel_id
-                WHERE v.youtube_id = :youtube_id
-                LIMIT 1
-                """
-            ),
-            {"youtube_id": youtube_id},
-        ).mappings().first()
-
-        if video:
-            try:
-                assert_under_limit(
-                    session,
-                    kid_id=kid_id,
-                    category_id=video["category_id"],
-                    now=now,
-                )
-            except HTTPException as exc:
-                if exc.status_code == 403:
-                    return RedirectResponse(url="/blocked/time", status_code=307)
-                raise
+            if reason in {ACCESS_REASON_DAILY_LIMIT, ACCESS_REASON_CATEGORY_LIMIT}:
+                return RedirectResponse(url="/blocked/time", status_code=307)
+            if reason == ACCESS_REASON_PENDING_APPROVAL:
+                return RedirectResponse(url="/blocked/pending", status_code=307)
+            return RedirectResponse(url="/blocked/pending", status_code=307)
 
     embed_origin = str(request.base_url).rstrip("/")
     return render_page(

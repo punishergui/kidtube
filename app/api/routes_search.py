@@ -10,7 +10,7 @@ from sqlmodel import Session
 
 from app.db.models import SearchLog
 from app.db.session import get_session
-from app.services.limits import is_in_any_schedule, is_in_bedtime
+from app.services.limits import ACCESS_REASON_PENDING_APPROVAL, check_access
 from app.services.youtube import search_videos
 
 router = APIRouter()
@@ -26,6 +26,9 @@ class SearchResult(BaseModel):
     published_at: str | None
     duration_seconds: int | None = None
     is_short: bool | None = None
+    access_state: str = "request"
+    blocked_reason: str | None = None
+    request_status: str | None = None
 
 
 @router.get("", response_model=list[SearchResult])
@@ -36,15 +39,39 @@ async def search(
 ) -> list[dict[str, object]]:
     normalized = q.strip()
     now = datetime.now(timezone.utc)  # noqa: UP017
-    if not is_in_any_schedule(session, kid_id=kid_id, now=now) or is_in_bedtime(
-        session, kid_id=kid_id, now=now
-    ):
+    allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
+    if not allowed:
         return []
 
     session.add(SearchLog(kid_id=kid_id, query=normalized))
     session.commit()
     try:
-        return await search_videos(normalized)
+        results = await search_videos(normalized)
+        enriched: list[dict[str, object]] = []
+        for item in results:
+            item_allowed, item_reason, details = check_access(
+                session,
+                kid_id=kid_id,
+                video_id=str(item["video_id"]),
+                channel_id=str(item["channel_id"]) if item.get("channel_id") else None,
+                is_shorts=bool(item.get("is_short")),
+                title=str(item.get("title") or ""),
+                now=now,
+            )
+            state = "play" if item_allowed else "blocked"
+            request_status = None
+            if item_reason == ACCESS_REASON_PENDING_APPROVAL:
+                request_status = str(details.get("request_status") or "none")
+                state = "request" if request_status == "none" else request_status
+            enriched.append(
+                {
+                    **item,
+                    "access_state": state,
+                    "blocked_reason": item_reason,
+                    "request_status": request_status,
+                }
+            )
+        return enriched
     except Exception:
         logger.debug("search_backend=api_failed", exc_info=True)
         return []

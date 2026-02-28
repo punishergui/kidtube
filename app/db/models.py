@@ -136,3 +136,11 @@ class VideoApproval(SQLModel, table=True):
     youtube_id: str = Field(index=True, unique=True)
     request_id: int | None = Field(default=None, foreign_key="requests.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ParentSettings(SQLModel, table=True):
+    __tablename__ = "parent_settings"
+
+    id: int = Field(primary_key=True)
+    shorts_enabled: bool = True
+    blocked_words: str | None = None

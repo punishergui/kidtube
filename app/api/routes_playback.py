@@ -9,7 +9,7 @@ from sqlmodel import Session
 
 from app.db.models import WatchLog
 from app.db.session import get_session
-from app.services.limits import assert_schedule_allowed, assert_under_limit
+from app.services.limits import check_access
 
 router = APIRouter()
 
@@ -24,7 +24,11 @@ class PlaybackLogPayload(BaseModel):
 class PlaybackHeartbeatPayload(BaseModel):
     kid_id: int
     video_id: str
-    seconds_delta: int = Field(ge=1, le=120)
+    seconds_delta: int | None = Field(default=None, ge=1, le=120)
+    position_seconds: int | None = Field(default=None, ge=0)
+    is_playing: bool = True
+    category_id: int | None = None
+    started_at: datetime | None = None
 
 
 @router.post("/log")
@@ -49,21 +53,22 @@ def log_playback(
 
 
     now = datetime.now(timezone.utc)  # noqa: UP017
-    assert_schedule_allowed(session, kid_id=payload.kid_id, now=now)
-    assert_under_limit(
+    allowed, reason, _details = check_access(
         session,
         kid_id=payload.kid_id,
+        video_id=payload.youtube_id,
         category_id=video["category_id"],
         now=now,
     )
+    if not allowed and reason:
+        raise HTTPException(status_code=403, detail=reason)
 
-    started_at = payload.started_at or now
     watch_log = WatchLog(
         kid_id=payload.kid_id,
         video_id=video["video_id"],
         seconds_watched=payload.seconds_watched,
         category_id=video["category_id"],
-        started_at=started_at,
+        started_at=payload.started_at or now,
     )
     session.add(watch_log)
     session.commit()
@@ -91,20 +96,45 @@ def log_watch_heartbeat(
         raise HTTPException(status_code=404, detail="Video not found")
 
     now = datetime.now(timezone.utc)  # noqa: UP017
-    assert_schedule_allowed(session, kid_id=payload.kid_id, now=now)
-    assert_under_limit(
+    allowed, reason, _details = check_access(
         session,
         kid_id=payload.kid_id,
+        video_id=payload.video_id,
         category_id=video["category_id"],
         now=now,
     )
+    if not allowed and reason:
+        raise HTTPException(status_code=403, detail=reason)
+
+    if not payload.is_playing:
+        return {"ok": True}
+
+    most_recent = session.execute(
+        text(
+            """
+            SELECT created_at
+            FROM watch_log
+            WHERE kid_id = :kid_id AND video_id = :video_id
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ),
+        {"kid_id": payload.kid_id, "video_id": video["video_id"]},
+    ).first()
+    if most_recent and most_recent[0]:
+        raw_then = most_recent[0]
+        then = raw_then if isinstance(raw_then, datetime) else datetime.fromisoformat(str(raw_then).replace("Z", "+00:00"))
+        if (now - then).total_seconds() < 8:
+            return {"ok": True}
+
+    seconds_delta = payload.seconds_delta if payload.seconds_delta is not None else 10
 
     watch_log = WatchLog(
         kid_id=payload.kid_id,
         video_id=video["video_id"],
-        seconds_watched=payload.seconds_delta,
-        category_id=video["category_id"],
-        started_at=now,
+        seconds_watched=seconds_delta,
+        category_id=payload.category_id if payload.category_id is not None else video["category_id"],
+        started_at=payload.started_at or now,
     )
     session.add(watch_log)
     session.commit()

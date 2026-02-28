@@ -18,7 +18,7 @@ async function load() {
     const sessionState = await requestJson('/api/session');
     const kidId = sessionState.kid_id;
     const [channel, rows] = await Promise.all([
-      requestJson(`/api/channels/youtube/${encodeURIComponent(channelId)}`),
+      requestJson(`/api/channels/youtube/${encodeURIComponent(channelId)}?kid_id=${kidId || ''}`),
       requestJson(`/api/channels/${encodeURIComponent(channelId)}/videos?kid_id=${kidId || ''}`),
     ]);
 
