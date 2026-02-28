@@ -3,14 +3,11 @@ from __future__ import annotations
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
-from app.core.config import settings
 from app.services.youtube import (
     YouTubeResolveError,
-    fetch_channel_metadata,
     fetch_latest_videos,
     resolve_channel,
 )
-from app.services.youtube_ytdlp import fetch_channel_videos, resolve_channel_id
 
 router = APIRouter()
 
@@ -46,32 +43,12 @@ class ChannelLookupResponse(BaseModel):
 async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> ChannelLookupResponse:
     normalized = query.strip()
     try:
-        if settings.youtube_api_key:
-            metadata = await resolve_channel(normalized)
-            channel_id = metadata.get('channel_id')
-            if not channel_id:
-                raise YouTubeResolveError('Unable to resolve the channel from this query.')
+        metadata = await resolve_channel(normalized)
+        channel_id = metadata.get('channel_id')
+        if not channel_id:
+            raise YouTubeResolveError('Unable to resolve the channel from this query.')
 
-            sample = await fetch_latest_videos(channel_id, max_results=6)
-        else:
-            channel_id = await resolve_channel_id(normalized)
-            if not channel_id:
-                raise YouTubeResolveError('Unable to resolve channel without API key.')
-            metadata = await fetch_channel_metadata(channel_id)
-            sample_ydl = await fetch_channel_videos(channel_id, max_results=6)
-            sample = [
-                {
-                    'youtube_id': item.get('video_id'),
-                    'title': item.get('title'),
-                    'thumbnail_url': item.get('thumbnail_url'),
-                    'published_at': item.get('published_at') or '',
-                    'duration': (
-                        str(item.get('duration')) if item.get('duration') is not None else None
-                    ),
-                }
-                for item in sample_ydl
-                if item.get('video_id')
-            ]
+        sample = await fetch_latest_videos(channel_id, max_results=6)
 
         channel = ChannelLookupPreview(
             youtube_id=channel_id,
