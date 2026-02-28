@@ -4,6 +4,11 @@
 <section class="page-head">
   <h1>Admin · Logs + Stats</h1>
 </section>
+<section class="panel stats-daily" id="today-summary"></section>
+<section class="panel stats-chart-panel">
+  <h2>Category Breakdown (Today)</h2>
+  <canvas id="category-breakdown-chart" height="120"></canvas>
+</section>
 <section class="panel stats-summary" id="stats-summary"></section>
 <section class="panel form-panel">
   <select id="stats-kid-filter"><option value="">All kids</option></select>
@@ -23,5 +28,6 @@
 </section>
 {% endblock %}
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script type="module" src="/static/stats.js"></script>
 {% endblock %}

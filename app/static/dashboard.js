@@ -69,6 +69,25 @@ function renderVideos() {
   shortsGrid.innerHTML = state.shorts.length ? state.shorts.map((item) => shortCard(item)).join('') : '<article class="panel empty-state">No shorts right now.</article>';
 }
 
+
+function startRequestCooldown(button, seconds) {
+  const original = button.dataset.cooldownLabel || button.textContent || 'Request';
+  button.dataset.cooldownLabel = original;
+  let remaining = Number(seconds || 0);
+  button.disabled = true;
+  button.textContent = `Try again in ${remaining}s…`;
+  const timer = window.setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      window.clearInterval(timer);
+      button.disabled = false;
+      button.textContent = original;
+      return;
+    }
+    button.textContent = `Try again in ${remaining}s…`;
+  }, 1000);
+}
+
 function renderSearchResults() {
   searchResultsWrap.hidden = !state.searchResults.length;
   if (!state.searchResults.length) return;
@@ -89,11 +108,33 @@ function renderSearchResults() {
     if (!state.kidId) return;
     const channelId = button.dataset.requestChannel;
     const channelAllowed = state.allowedChannels.some((channel) => channel.youtube_id === channelId);
-    if (channelId && !channelAllowed) {
-      await requestJson('/api/requests/channel-allow', { method: 'POST', body: JSON.stringify({ youtube_id: channelId, kid_id: state.kidId }) });
-    } else {
-      await requestJson('/api/requests/video-allow', { method: 'POST', body: JSON.stringify({ youtube_id: button.dataset.requestVideo, kid_id: state.kidId }) });
+    const endpoint = channelId && !channelAllowed ? '/api/requests/channel-allow' : '/api/requests/video-allow';
+    const youtubeId = channelId && !channelAllowed ? channelId : button.dataset.requestVideo;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ youtube_id: youtubeId, kid_id: state.kidId }),
+    });
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
     }
+
+    if (response.status === 429) {
+      const retryAfter = Number(payload?.retry_after || response.headers.get('Retry-After') || 30);
+      startRequestCooldown(button, retryAfter);
+      showToast(`Try again in ${retryAfter}s…`, 'error');
+      return;
+    }
+
+    if (!response.ok) {
+      showToast(`Request failed: ${payload?.detail || response.statusText}`, 'error');
+      return;
+    }
+
     showToast('Request sent');
   }));
 }

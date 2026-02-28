@@ -887,3 +887,90 @@ textarea:focus-visible {
   display: grid;
   place-items: center;
 }
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.schedule-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.55rem;
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+}
+
+.schedule-pills {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 1.8rem;
+}
+
+.schedule-pill {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem;
+}
+
+.schedule-inline-form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.schedule-inline-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.stats-daily,
+.stats-chart-panel {
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.today-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.7rem;
+}
+
+.today-kid-card {
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  border-radius: 14px;
+  padding: 0.9rem;
+}
+
+.split-bar {
+  display: flex;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #2a3342;
+  margin: 0.4rem 0;
+}
+
+.split-edu {
+  background: linear-gradient(135deg, #56cfe1, #72efdd);
+}
+
+.split-fun {
+  background: linear-gradient(135deg, #5f6dff, #ff76c8);
+}
+
+@media (max-width: 1100px) {
+  .schedule-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
