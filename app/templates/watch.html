@@ -4,6 +4,55 @@
 <section class="page-head">
   <a href="/" class="btn-secondary">← Back to Dashboard</a>
 </section>
+<style>
+  .player-wrap {
+    position: relative;
+  }
+
+  .watch-now-playing {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.7);
+  }
+
+  .watch-now-playing-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .watch-now-playing-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #0d1117;
+  }
+
+  .watch-now-playing-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    color: #e6edf3;
+  }
+
+  .watch-now-playing-meta strong,
+  .watch-now-playing-meta span {
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
 <section id="watch-container" class="watch-layout watch-page" data-youtube-id="{{ youtube_id }}" data-embed-origin="{{ embed_origin }}">
   <article class="panel watch-details">
     <h2>Video not found</h2>
