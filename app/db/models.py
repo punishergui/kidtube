@@ -11,6 +11,7 @@ class Kid(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     avatar_url: str | None = None
+    pin: str | None = None
     daily_limit_minutes: int | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

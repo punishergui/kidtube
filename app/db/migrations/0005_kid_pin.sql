@@ -1,0 +1,1 @@
+ALTER TABLE kids ADD COLUMN pin TEXT;
