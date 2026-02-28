@@ -38,25 +38,44 @@ function renderCategories() {
   categoryPills.innerHTML = state.categories.map((category) => `<button class="pill ${category.name === state.category ? 'active' : ''}" data-category="${category.name}">${category.name[0].toUpperCase()}${category.name.slice(1)}</button>`).join('');
   categoryPills.querySelectorAll('button[data-category]').forEach((button) => button.addEventListener('click', () => { state.category = button.dataset.category; renderCategories(); renderVideos(); }));
 }
-function card(item, isShort = false) { return `<a class="video-card panel ${isShort ? 'short-card' : ''}" href="/watch/${item.video_youtube_id}"><img class="thumb" src="${item.video_thumbnail_url}" alt="${item.video_title}" /><div><h3 class="video-title">${item.video_title}</h3><p class="small">${item.channel_title || 'Unknown'} · ${formatDuration(item.video_duration_seconds)}</p></div></a>`; }
+
+function card(item) {
+  return `<a class="video-card" href="/watch/${item.video_youtube_id}">
+    <img class="thumb" src="${item.video_thumbnail_url}" alt="${item.video_title}" />
+    <div class="card-body">
+      <h3 class="video-title">${item.video_title}</h3>
+      <p class="video-meta">${item.channel_title || 'Unknown'} · ${formatDuration(item.video_duration_seconds)}</p>
+    </div>
+  </a>`;
+}
+
+function shortCard(item) {
+  return `<a class="shorts-card" href="/watch/${item.video_youtube_id}">
+    <img class="thumb" src="${item.video_thumbnail_url}" alt="${item.video_title}" />
+    <div class="card-body">
+      <h3 class="video-title">${item.video_title}</h3>
+      <p class="video-meta">${item.channel_title || 'Unknown'} · ${formatDuration(item.video_duration_seconds)}</p>
+    </div>
+  </a>`;
+}
 
 function renderVideos() {
   const visible = state.items.filter(categoryMatches);
   grid.innerHTML = visible.length ? visible.map((item) => card(item)).join('') : '<article class="panel empty-state">No videos yet.</article>';
   latestGrid.innerHTML = state.latestPerChannel.length ? state.latestPerChannel.map((item) => card(item)).join('') : '<article class="panel empty-state">No latest videos yet.</article>';
   allowedChannelGrid.innerHTML = state.allowedChannels.length
-    ? state.allowedChannels.map((channel) => `<a class="channel-chip panel" href="/channel/${channel.youtube_id}">${channel.avatar_url ? `<img class="channel-chip-avatar" src="${channel.avatar_url}" alt="${channel.title || channel.youtube_id}" />` : '<span class="channel-chip-avatar">📺</span>'}<span>${channel.title || channel.youtube_id}</span></a>`).join('')
+    ? state.allowedChannels.map((channel) => `<a class="channel-pill" href="/channel/${channel.youtube_id}">${channel.avatar_url ? `<img class="channel-pill-avatar" src="${channel.avatar_url}" alt="${channel.title || channel.youtube_id}" />` : '<span class="channel-pill-avatar">📺</span>'}<span class="channel-pill-name">${channel.title || channel.youtube_id}</span></a>`).join('')
     : '<article class="panel empty-state">No allowed channels.</article>';
-  shortsGrid.innerHTML = state.shorts.length ? state.shorts.map((item) => card(item, true)).join('') : '<article class="panel empty-state">No shorts right now.</article>';
+  shortsGrid.innerHTML = state.shorts.length ? state.shorts.map((item) => shortCard(item)).join('') : '<article class="panel empty-state">No shorts right now.</article>';
 }
 
 function renderSearchResults() {
   searchResultsWrap.hidden = !state.searchResults.length;
   if (!state.searchResults.length) return;
   searchResultsGrid.innerHTML = state.searchResults.map((item) => `
-    <article class="panel video-card">
+    <article class="video-card">
       <img class="thumb" src="${item.thumbnail_url}" alt="${item.title}" />
-      <div><h3 class="video-title">${item.title}</h3><p class="small">${item.channel_title}</p>
+      <div class="card-body"><h3 class="video-title">${item.title}</h3><p class="video-meta">${item.channel_title}</p>
       <button class="btn-primary" data-request-video="${item.video_id}" data-request-channel="${item.channel_id || ''}">Request</button></div>
     </article>`).join('');
   searchResultsGrid.querySelectorAll('[data-request-video]').forEach((button) => button.addEventListener('click', async () => {
