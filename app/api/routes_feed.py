@@ -44,18 +44,20 @@ def list_feed(
             c.youtube_id AS channel_youtube_id,
             c.title AS channel_title,
             c.avatar_url AS channel_avatar_url,
-            c.category AS channel_category,
+            COALESCE(cat.name, c.category, 'fun') AS channel_category,
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
             v.published_at AS video_published_at
         FROM videos v
         JOIN channels c ON c.id = v.channel_id
+        LEFT JOIN categories cat ON cat.id = c.category_id
         WHERE c.enabled = 1
           AND c.allowed = 1
           AND c.blocked = 0
+          AND COALESCE(cat.enabled, 1) = 1
           AND (:channel_id IS NULL OR c.id = :channel_id)
-          AND (:category IS NULL OR c.category = :category)
+          AND (:category IS NULL OR LOWER(COALESCE(cat.name, c.category, 'fun')) = LOWER(:category))
         ORDER BY v.published_at DESC
         LIMIT :limit OFFSET :offset
         """
@@ -81,16 +83,18 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
             c.youtube_id AS channel_youtube_id,
             c.title AS channel_title,
             c.avatar_url AS channel_avatar_url,
-            c.category AS channel_category,
+            COALESCE(cat.name, c.category, 'fun') AS channel_category,
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
             v.published_at AS video_published_at
         FROM channels c
         JOIN videos v ON v.channel_id = c.id
+        LEFT JOIN categories cat ON cat.id = c.category_id
         WHERE c.enabled = 1
           AND c.allowed = 1
           AND c.blocked = 0
+          AND COALESCE(cat.enabled, 1) = 1
           AND v.id = (
             SELECT vv.id
             FROM videos vv

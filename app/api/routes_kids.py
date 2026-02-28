@@ -21,12 +21,14 @@ class KidCreate(BaseModel):
     name: str
     avatar_url: str | None = None
     daily_limit_minutes: int | None = None
+    pin: str | None = None
 
 
 class KidUpdate(BaseModel):
     name: str | None = None
     avatar_url: str | None = None
     daily_limit_minutes: int | None = None
+    pin: str | None = None
 
 
 class KidRead(BaseModel):
@@ -35,6 +37,7 @@ class KidRead(BaseModel):
     avatar_url: str | None
     daily_limit_minutes: int | None
     created_at: datetime
+    has_pin: bool = False
 
 
 def _avatar_path(kid_id: int) -> Path:
@@ -48,33 +51,50 @@ def _delete_avatar_file(kid_id: int) -> None:
     avatar_path.unlink(missing_ok=True)
 
 
+def _to_kid_read(kid: Kid) -> KidRead:
+    return KidRead(
+        id=kid.id,
+        name=kid.name,
+        avatar_url=kid.avatar_url,
+        daily_limit_minutes=kid.daily_limit_minutes,
+        created_at=kid.created_at,
+        has_pin=bool(kid.pin_hash),
+    )
+
+
 @router.get("", response_model=list[KidRead])
-def list_kids(session: Session = Depends(get_session)) -> list[Kid]:
-    return session.exec(select(Kid).order_by(Kid.id)).all()
+def list_kids(session: Session = Depends(get_session)) -> list[KidRead]:
+    kids = session.exec(select(Kid).order_by(Kid.id)).all()
+    return [_to_kid_read(kid) for kid in kids]
 
 
 @router.post("", response_model=KidRead, status_code=status.HTTP_201_CREATED)
-def create_kid(payload: KidCreate, session: Session = Depends(get_session)) -> Kid:
-    kid = Kid.model_validate(payload)
+def create_kid(payload: KidCreate, session: Session = Depends(get_session)) -> KidRead:
+    data = payload.model_dump()
+    data['pin_hash'] = data.pop('pin')
+    kid = Kid.model_validate(data)
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return _to_kid_read(kid)
 
 
 @router.patch("/{kid_id}", response_model=KidRead)
-def patch_kid(kid_id: int, payload: KidUpdate, session: Session = Depends(get_session)) -> Kid:
+def patch_kid(kid_id: int, payload: KidUpdate, session: Session = Depends(get_session)) -> KidRead:
     kid = session.get(Kid, kid_id)
     if not kid:
         raise HTTPException(status_code=404, detail="Kid not found")
 
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if 'pin' in updates:
+        updates['pin_hash'] = updates.pop('pin')
+    for field, value in updates.items():
         setattr(kid, field, value)
 
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return _to_kid_read(kid)
 
 
 @router.post("/{kid_id}/avatar", response_model=KidRead)
@@ -82,7 +102,7 @@ async def upload_kid_avatar(
     kid_id: int,
     file: UploadFile = File(...),
     session: Session = Depends(get_session),
-) -> Kid:
+) -> KidRead:
     kid = session.get(Kid, kid_id)
     if not kid:
         raise HTTPException(status_code=404, detail="Kid not found")
@@ -102,11 +122,11 @@ async def upload_kid_avatar(
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return _to_kid_read(kid)
 
 
 @router.delete("/{kid_id}/avatar", response_model=KidRead)
-def delete_kid_avatar(kid_id: int, session: Session = Depends(get_session)) -> Kid:
+def delete_kid_avatar(kid_id: int, session: Session = Depends(get_session)) -> KidRead:
     kid = session.get(Kid, kid_id)
     if not kid:
         raise HTTPException(status_code=404, detail="Kid not found")
@@ -116,4 +136,4 @@ def delete_kid_avatar(kid_id: int, session: Session = Depends(get_session)) -> K
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return _to_kid_read(kid)

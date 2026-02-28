@@ -150,3 +150,22 @@ pytest
 - Docker publish workflow (`.github/workflows/docker-publish.yml`):
   - Push to `main` → tags `:main` and `:sha-<fullsha>`
   - Tag `v*.*.*` → tags version and `:latest`
+
+
+## Parent Control additions
+
+- Kid selector now uses signed server sessions (`/api/session/kid`) and optional per-kid PIN checks.
+- Global channel/video approvals remain global, independent of kid profile.
+- Categories are now first-class DB records (`education`, `fun` by default), with CRUD endpoints at `/api/categories`.
+- Per-kid category limits, schedules, and bonus-time grants are available under `/api/kids/{kid_id}/...` routes.
+- Playback and search activity are logged with parent reporting endpoints (`/api/parent/logs`, `/api/parent/stats`).
+- Discord interaction actions support approve/deny for channel/video requests and bonus-time grants.
+
+### How to use (parents + kids)
+
+1. Parent creates kid profiles via `/admin/kids` or `POST /api/kids` (optionally include `pin`).
+2. Kid opens dashboard and picks profile; if PIN is enabled, parent enters PIN to unlock.
+3. Parent configures global channel allow/block and category settings.
+4. Parent can set per-kid schedules, category limits, and bonus time with API routes.
+5. Kid watches only during allowed windows; when limits are reached, playback endpoints deny access.
+6. Parent reviews activity logs/stats from parent endpoints.

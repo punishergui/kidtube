@@ -6,6 +6,20 @@ const embedOrigin = container?.dataset.embedOrigin;
 
 let ytApiPromise;
 
+let watchSeconds = 0;
+let watchTimer = null;
+
+function startWatchLogging(videoId) {
+  watchTimer = window.setInterval(() => {
+    watchSeconds += 15;
+    fetch('/api/playback/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ video_youtube_id: videoId, watched_seconds: 15 }),
+    }).catch(() => {});
+  }, 15000);
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -130,6 +144,7 @@ async function loadVideo() {
         onReady: () => {
           const loading = document.getElementById('watch-loading');
           if (loading) loading.hidden = true;
+          startWatchLogging(video.youtube_id);
         },
         onError: () => showPlaybackFallback(channelId),
       },
@@ -143,3 +158,5 @@ async function loadVideo() {
 }
 
 loadVideo();
+
+window.addEventListener('beforeunload', () => { if (watchTimer) window.clearInterval(watchTimer); });

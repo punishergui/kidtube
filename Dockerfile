@@ -10,7 +10,11 @@ COPY app ./app
 
 RUN python -m pip install --upgrade pip && pip install .
 
-RUN mkdir -p /data
+RUN addgroup --system kidtube && adduser --system --ingroup kidtube kidtube \
+    && mkdir -p /data \
+    && chown -R kidtube:kidtube /app /data
+
+USER kidtube
 
 EXPOSE 2018
 

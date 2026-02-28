@@ -13,7 +13,7 @@ const state = {
   items: [],
   latestPerChannel: [],
   category: localStorage.getItem('kidtube-category') || 'all',
-  kidId: Number(localStorage.getItem('kidtube-active-kid')) || null,
+  kidId: null,
   channelFilter: queryParams.get('channel_id') || null,
   offset: 0,
   limit: 30,
@@ -73,10 +73,30 @@ function kidCard(kid) {
       </span>
       <span class="kid-meta">
         <strong>${kid.name}</strong>
-        <span class="left-pill">${kid.daily_limit_minutes || 60}m left</span>
+        <span class="left-pill">${kid.daily_limit_minutes || 60}m left${kid.has_pin ? ' · PIN' : ''}</span>
       </span>
     </button>
   `;
+}
+
+async function chooseKid(kidId) {
+  const selection = await requestJson('/api/session/kid', {
+    method: 'POST',
+    body: JSON.stringify({ kid_id: kidId }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  if (selection.pin_required) {
+    const pin = window.prompt('Enter parent PIN for this profile');
+    if (!pin) return;
+    await requestJson('/api/session/kid/verify-pin', {
+      method: 'POST',
+      body: JSON.stringify({ pin }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  state.kidId = kidId;
 }
 
 function renderKids(kids) {
@@ -85,17 +105,16 @@ function renderKids(kids) {
     return;
   }
 
-  if (!state.kidId || !kids.find((kid) => kid.id === state.kidId)) {
-    state.kidId = kids[0].id;
-  }
-
   kidSelector.innerHTML = kids.map(kidCard).join('');
 
   kidSelector.querySelectorAll('[data-kid-id]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.kidId = Number(button.dataset.kidId);
-      localStorage.setItem('kidtube-active-kid', String(state.kidId));
-      renderKids(kids);
+    button.addEventListener('click', async () => {
+      try {
+        await chooseKid(Number(button.dataset.kidId));
+        renderKids(kids);
+      } catch (error) {
+        showToast(`Unable to unlock profile: ${error.message}`, 'error');
+      }
     });
   });
 }
@@ -133,12 +152,12 @@ function renderVideos() {
 }
 
 async function loadMore() {
-  if (!state.hasMore) return;
+  if (!state.hasMore || !state.kidId) return;
 
   const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
   if (state.channelFilter) params.set('channel_id', state.channelFilter);
   if (state.category !== 'all') params.set('category', state.category);
-  if (state.kidId) params.set('kid_id', String(state.kidId));
+  params.set('kid_id', String(state.kidId));
 
   const page = await requestJson(`/api/feed?${params.toString()}`);
   state.items.push(...page);
@@ -155,7 +174,12 @@ async function loadMore() {
 
 async function loadDashboard() {
   try {
-    const [kids, latest] = await Promise.all([requestJson('/api/kids'), requestJson('/api/feed/latest-per-channel')]);
+    const [kids, latest, kidSession] = await Promise.all([
+      requestJson('/api/kids'),
+      requestJson('/api/feed/latest-per-channel'),
+      requestJson('/api/session/kid'),
+    ]);
+    state.kidId = kidSession.kid_id || null;
     state.latestPerChannel = latest;
     renderKids(kids);
     renderCategories();

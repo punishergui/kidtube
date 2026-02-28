@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, time
 
 from sqlmodel import Field, SQLModel
 
@@ -11,6 +11,17 @@ class Kid(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str
     avatar_url: str | None = None
+    daily_limit_minutes: int | None = None
+    pin_hash: str | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Category(SQLModel, table=True):
+    __tablename__ = "categories"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(index=True, unique=True)
+    enabled: bool = True
     daily_limit_minutes: int | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -25,6 +36,7 @@ class Channel(SQLModel, table=True):
     avatar_url: str | None = None
     banner_url: str | None = None
     category: str | None = None
+    category_id: int | None = Field(default=None, foreign_key="categories.id")
     allowed: bool = False
     blocked: bool = False
     blocked_at: datetime | None = None
@@ -59,12 +71,63 @@ class WatchLog(SQLModel, table=True):
     watched_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+class SearchLog(SQLModel, table=True):
+    __tablename__ = "search_log"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id")
+    query: str
+    searched_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class KidCategoryLimit(SQLModel, table=True):
+    __tablename__ = "kid_category_limits"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id")
+    category_id: int = Field(foreign_key="categories.id")
+    daily_limit_minutes: int
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class KidSchedule(SQLModel, table=True):
+    __tablename__ = "kid_schedules"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id")
+    day_of_week: int
+    start_time: time
+    end_time: time
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class KidBonusTime(SQLModel, table=True):
+    __tablename__ = "kid_bonus_time"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id")
+    minutes: int
+    used_minutes: int = 0
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class VideoApproval(SQLModel, table=True):
+    __tablename__ = "video_approvals"
+
+    id: int | None = Field(default=None, primary_key=True)
+    youtube_id: str = Field(index=True, unique=True)
+    allowed: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Request(SQLModel, table=True):
     __tablename__ = "requests"
 
     id: int | None = Field(default=None, primary_key=True)
     type: str
-    youtube_id: str
+    youtube_id: str | None = None
     kid_id: int | None = Field(default=None, foreign_key="kids.id")
     status: str = "pending"
+    payload: str | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

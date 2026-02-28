@@ -9,7 +9,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from app.db.models import Channel
+from app.db.models import Category, Channel
 from app.db.session import get_session
 from app.services.sync import store_videos
 from app.services.youtube import fetch_latest_videos, resolve_channel
@@ -20,11 +20,13 @@ router = APIRouter()
 class ChannelCreate(BaseModel):
     input: str
     category: str | None = None
+    category_id: int | None = None
 
 
 class ChannelUpdate(BaseModel):
     enabled: bool | None = None
     category: str | None = None
+    category_id: int | None = None
     allowed: bool | None = None
     blocked: bool | None = None
     blocked_reason: str | None = None
@@ -38,6 +40,7 @@ class ChannelRead(BaseModel):
     avatar_url: str | None
     banner_url: str | None
     category: str | None
+    category_id: int | None
     allowed: bool
     blocked: bool
     blocked_reason: str | None
@@ -61,10 +64,17 @@ async def create_channel(
 ) -> Channel:
     raw_input = payload.input.strip()
     placeholder_id = f"pending:{uuid4()}"
+    category_id = payload.category_id
+    category_name = payload.category
+    if category_id and not category_name:
+        category_obj = session.get(Category, category_id)
+        category_name = category_obj.name if category_obj else None
+
     channel = Channel(
         youtube_id=placeholder_id,
         input=raw_input,
-        category=payload.category,
+        category=category_name,
+        category_id=category_id,
         resolve_status="pending",
     )
 
@@ -118,6 +128,10 @@ def patch_channel(
         raise HTTPException(status_code=404, detail="Channel not found")
 
     data = payload.model_dump(exclude_unset=True)
+    if data.get("category_id") and not data.get("category"):
+        category_obj = session.get(Category, data["category_id"])
+        if category_obj:
+            data["category"] = category_obj.name
     blocked_before = channel.blocked
 
     for field, value in data.items():
