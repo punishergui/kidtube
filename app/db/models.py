@@ -55,8 +55,59 @@ class WatchLog(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     kid_id: int = Field(foreign_key="kids.id")
     video_id: int = Field(foreign_key="videos.id")
-    watched_seconds: int
-    watched_at: datetime = Field(default_factory=datetime.utcnow)
+    seconds_watched: int
+    category_id: int | None = Field(default=None, foreign_key="categories.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Category(SQLModel, table=True):
+    __tablename__ = "categories"
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, index=True)
+    enabled: bool = True
+    daily_limit_minutes: int | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class KidSchedule(SQLModel, table=True):
+    __tablename__ = "kid_schedules"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id", index=True)
+    day_of_week: int = Field(index=True)
+    start_time: str
+    end_time: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class KidCategoryLimit(SQLModel, table=True):
+    __tablename__ = "kid_category_limits"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id", index=True)
+    category_id: int = Field(foreign_key="categories.id", index=True)
+    daily_limit_minutes: int
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class KidBonusTime(SQLModel, table=True):
+    __tablename__ = "kid_bonus_time"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id", index=True)
+    minutes: int
+    expires_at: datetime | None = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class SearchLog(SQLModel, table=True):
+    __tablename__ = "search_log"
+
+    id: int | None = Field(default=None, primary_key=True)
+    kid_id: int = Field(foreign_key="kids.id", index=True)
+    query: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class Request(SQLModel, table=True):
