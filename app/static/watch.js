@@ -12,6 +12,19 @@ let heartbeatHandle = null;
 
 let ytApiPromise;
 
+const embedBase = 'https://www.youtube-nocookie.com/embed';
+
+function buildNoCookieEmbedUrl(videoId) {
+  const params = new URLSearchParams({
+    rel: '0',
+    modestbranding: '1',
+    playsinline: '1',
+    enablejsapi: '1',
+    origin: embedOrigin || window.location.origin,
+  });
+  return `${embedBase}/${encodeURIComponent(videoId)}?${params.toString()}`;
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -137,7 +150,7 @@ async function loadVideo() {
     }, 10000);
 
     const yt = await loadYoutubeIframeApi();
-    new yt.Player('watch-player', {
+    const player = new yt.Player('watch-player', {
       videoId: video.youtube_id,
       playerVars: { rel: 0, modestbranding: 1, playsinline: 1, enablejsapi: 1, origin: embedOrigin || window.location.origin },
       host: 'https://www.youtube-nocookie.com',
@@ -145,6 +158,8 @@ async function loadVideo() {
         onReady: () => {
           const loading = document.getElementById('watch-loading');
           if (loading) loading.hidden = true;
+          const iframe = player.getIframe?.();
+          if (iframe) iframe.src = buildNoCookieEmbedUrl(video.youtube_id);
         },
         onError: () => showPlaybackFallback(channelId),
         onStateChange: async (event) => {
