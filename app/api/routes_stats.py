@@ -93,7 +93,10 @@ def set_shorts_setting(
     session: Session = Depends(get_session),
 ) -> dict[str, bool]:
     session.execute(
-        text("INSERT INTO parent_settings(id, shorts_enabled) VALUES (1, :enabled) ON CONFLICT(id) DO UPDATE SET shorts_enabled = :enabled"),
+        text(
+            "INSERT INTO parent_settings(id, shorts_enabled) VALUES (1, :enabled) "
+            "ON CONFLICT(id) DO UPDATE SET shorts_enabled = :enabled"
+        ),
         {'enabled': 1 if payload.enabled else 0},
     )
     session.commit()

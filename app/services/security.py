@@ -6,7 +6,7 @@ from app.core.config import settings
 
 
 def hash_pin(pin: str) -> str:
-    digest = hashlib.sha256(f"{settings.secret_key}:{pin}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{settings.secret_key}:{pin}".encode()).hexdigest()
     return f"sha256${digest}"
 
 

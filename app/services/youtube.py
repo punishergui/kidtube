@@ -154,7 +154,11 @@ async def search_videos(
     )
 
     base_items = payload.get("items", [])
-    video_ids = [item.get("id", {}).get("videoId") for item in base_items if item.get("id", {}).get("videoId")]
+    video_ids = [
+        item.get("id", {}).get("videoId")
+        for item in base_items
+        if item.get("id", {}).get("videoId")
+    ]
 
     durations: dict[str, int | None] = {}
     if video_ids:
@@ -180,7 +184,12 @@ async def search_videos(
         if not video_id:
             continue
         thumbnails = snippet.get("thumbnails", {})
-        thumb = thumbnails.get("high") or thumbnails.get("medium") or thumbnails.get("default") or {}
+        thumb = (
+            thumbnails.get("high")
+            or thumbnails.get("medium")
+            or thumbnails.get("default")
+            or {}
+        )
         duration_seconds = durations.get(video_id)
         records.append(
             {

@@ -91,4 +91,10 @@ def ui_watch(request: Request, youtube_id: str) -> HTMLResponse:
 
 @router.get('/channel/{channel_id}', response_class=HTMLResponse)
 def ui_channel(request: Request, channel_id: str) -> HTMLResponse:
-    return render_page(request, 'channel.html', page='channel', channel_id=channel_id, nav_mode='kid')
+    return render_page(
+        request,
+        'channel.html',
+        page='channel',
+        channel_id=channel_id,
+        nav_mode='kid',
+    )

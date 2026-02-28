@@ -160,7 +160,9 @@ def list_shorts(
     limit: int = Query(default=20, ge=1, le=50),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
-    shorts_enabled = session.execute(text("SELECT shorts_enabled FROM parent_settings WHERE id = 1")).first()
+    shorts_enabled = session.execute(
+        text("SELECT shorts_enabled FROM parent_settings WHERE id = 1")
+    ).first()
     if shorts_enabled and int(shorts_enabled[0]) == 0:
         return []
     rows = session.execute(
