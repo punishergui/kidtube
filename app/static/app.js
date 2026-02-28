@@ -43,4 +43,32 @@ function setActiveNav() {
   });
 }
 
+async function initSearchLogging() {
+  const form = document.getElementById('header-search-form');
+  const input = document.getElementById('header-search-input');
+  if (!form || !input) return;
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const query = input.value.trim();
+    if (!query) return;
+
+    try {
+      const sessionState = await requestJson('/api/session');
+      if (!sessionState.kid_id) {
+        showToast('Select a kid profile before searching.', 'error');
+        return;
+      }
+      await requestJson('/api/logs/search', {
+        method: 'POST',
+        body: JSON.stringify({ kid_id: sessionState.kid_id, query }),
+      });
+      showToast(`Search logged for "${query}".`);
+    } catch (error) {
+      showToast(`Unable to log search: ${error.message}`, 'error');
+    }
+  });
+}
+
 setActiveNav();
+initSearchLogging();
