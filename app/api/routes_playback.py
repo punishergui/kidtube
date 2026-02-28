@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -55,7 +55,7 @@ def log_playback(
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    now = datetime.now(timezone.utc)  # noqa: UP017
+    now = datetime.now(UTC)  # noqa: UP017
     allowed, reason, _details = check_access(
         session,
         kid_id=payload.kid_id,
@@ -102,7 +102,7 @@ def log_watch_heartbeat(
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    now = datetime.now(timezone.utc)  # noqa: UP017
+    now = datetime.now(UTC)  # noqa: UP017
     allowed, reason, _details = check_access(
         session,
         kid_id=payload.kid_id,
@@ -134,6 +134,10 @@ def log_watch_heartbeat(
             then = raw_then
         else:
             then = datetime.fromisoformat(str(raw_then).replace("Z", "+00:00"))
+        if then.tzinfo is None:
+            then = then.replace(tzinfo=UTC)
+        else:
+            then = then.astimezone(UTC)
         if (now - then).total_seconds() < 8:
             return {"ok": True}
 

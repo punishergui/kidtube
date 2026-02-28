@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from app.services.youtube import (
@@ -83,4 +83,10 @@ async def channel_lookup(query: str = Query(min_length=1, max_length=500)) -> Ch
             error=None,
         )
     except Exception as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return ChannelLookupResponse(
+            query=normalized,
+            found=False,
+            channel=None,
+            sample_videos=[],
+            error=str(exc),
+        )
