@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -11,6 +12,30 @@ def resolve_db_path(environ: Mapping[str, str] | None = None) -> Path:
     if configured:
         return Path(configured)
     return Path("./data/kidtube.db")
+
+
+def format_dir_diagnostics(path: Path) -> dict[str, object]:
+    info: dict[str, object] = {
+        "path": str(path),
+        "exists": path.exists(),
+    }
+
+    try:
+        st = path.stat()
+    except OSError as exc:
+        info.update({"owner_uid": None, "owner_gid": None, "mode": None, "stat_error": str(exc)})
+    else:
+        info.update(
+            {
+                "owner_uid": st.st_uid,
+                "owner_gid": st.st_gid,
+                "mode": oct(stat.S_IMODE(st.st_mode)),
+                "stat_error": None,
+            }
+        )
+
+    info["writable"] = os.access(path, os.W_OK)
+    return info
 
 
 def ensure_db_parent_writable(db_path: Path) -> None:

@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import stat
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -20,7 +19,7 @@ from app.core.logging import setup_logging
 from app.core.request_context import request_logging_middleware
 from app.core.version import get_version_payload
 from app.db.migrate import run_migrations
-from app.db.paths import ensure_db_parent_writable
+from app.db.paths import ensure_db_parent_writable, format_dir_diagnostics
 from app.db.session import engine
 from app.services.sync import periodic_sync
 from app.ui import router as ui_router
@@ -34,27 +33,27 @@ async def lifespan(app: FastAPI):
     sqlite_path = settings.sqlite_path
     if sqlite_path:
         parent = sqlite_path.parent
-        parent_stat: str | None = None
-        if parent.exists():
-            try:
-                mode = stat.S_IMODE(parent.stat().st_mode)
-                parent_stat = oct(mode)
-            except OSError as exc:
-                parent_stat = f"unavailable ({exc})"
+        process_uid = os.getuid()
+        process_gid = os.getgid()
+        parent_info = format_dir_diagnostics(parent)
         try:
             ensure_db_parent_writable(sqlite_path)
         except Exception as exc:
             logger.error(
-                "database startup check failed",
-                extra={
-                    "error": str(exc),
-                    "db_path": str(sqlite_path),
-                    "uid": os.getuid(),
-                    "gid": os.getgid(),
-                    "parent": str(parent),
-                    "parent_exists": parent.exists(),
-                    "parent_permissions": parent_stat,
-                },
+                (
+                    "Database startup check failed: %s | resolved_sqlite_path=%s uid=%s gid=%s "
+                    "parent=%s parent_owner_uid=%s parent_owner_gid=%s parent_mode=%s "
+                    "parent_writable=%s"
+                ),
+                exc,
+                sqlite_path,
+                process_uid,
+                process_gid,
+                parent,
+                parent_info.get("owner_uid"),
+                parent_info.get("owner_gid"),
+                parent_info.get("mode"),
+                parent_info.get("writable"),
             )
             raise RuntimeError(str(exc)) from exc
 
