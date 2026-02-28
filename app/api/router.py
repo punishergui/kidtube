@@ -9,6 +9,7 @@ from app.api.routes_feed import router as feed_router
 from app.api.routes_kids import router as kids_router
 from app.api.routes_logs import router as logs_router
 from app.api.routes_playback import router as playback_router
+from app.api.routes_requests import router as requests_router
 from app.api.routes_session import router as session_router
 from app.api.routes_stats import router as stats_router
 from app.api.routes_sync import router as sync_router
@@ -22,6 +23,7 @@ api_router.include_router(feed_router, prefix="/api/feed", tags=["feed"])
 api_router.include_router(kids_router, prefix="/api/kids", tags=["kids"])
 api_router.include_router(logs_router, prefix="/api/logs", tags=["logs"])
 api_router.include_router(playback_router, prefix="/api/playback", tags=["playback"])
+api_router.include_router(requests_router, prefix="/api/requests", tags=["requests"])
 api_router.include_router(session_router, prefix="/api/session", tags=["session"])
 api_router.include_router(stats_router, prefix="/api", tags=["stats"])
 api_router.include_router(videos_router, prefix="/api/videos", tags=["videos"])

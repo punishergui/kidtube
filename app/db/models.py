@@ -120,7 +120,17 @@ class Request(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     type: str
-    youtube_id: str
+    youtube_id: str | None = None
     kid_id: int | None = Field(default=None, foreign_key="kids.id")
     status: str = "pending"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    resolved_at: datetime | None = None
+
+
+class VideoApproval(SQLModel, table=True):
+    __tablename__ = "video_approvals"
+
+    id: int | None = Field(default=None, primary_key=True)
+    youtube_id: str = Field(index=True, unique=True)
+    request_id: int | None = Field(default=None, foreign_key="requests.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
