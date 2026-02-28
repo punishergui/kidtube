@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlmodel import Session, select
 
+from app.core.config import settings
 from app.db.models import Kid, KidBonusTime, KidSchedule
 from app.db.session import get_session
 from app.services.security import hash_pin
@@ -82,7 +83,7 @@ class KidCategoryLimitUpdate(BaseModel):
     daily_limit_minutes: int = Field(ge=0)
 
 
-AVATAR_ROOT = Path("/data/avatars/kids")
+AVATAR_ROOT = settings.avatar_dir
 
 
 def _avatar_path(kid_id: int) -> Path:
