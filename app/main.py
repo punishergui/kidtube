@@ -81,8 +81,12 @@ async def lifespan(app: FastAPI):
             )
             raise RuntimeError(str(exc)) from exc
 
-    avatars_dir = Path("/data/avatars/kids")
-    avatars_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        settings.avatar_dir.mkdir(parents=True, exist_ok=True)
+    except (PermissionError, OSError) as e:
+        logging.getLogger(__name__).warning(
+            "Could not create avatar dir %s: %s", settings.avatar_dir, e
+        )
 
     run_migrations(engine, Path(__file__).parent / "db" / "migrations")
     app.state.started_at = time.time()
@@ -116,12 +120,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 app.middleware("http")(request_logging_middleware)
-Path("/data/avatars/kids").mkdir(parents=True, exist_ok=True)
-app.mount(
-    "/static/uploads/kids",
-    StaticFiles(directory=Path("/data/avatars/kids")),
-    name="kid-avatars",
-)
+try:
+    settings.avatar_dir.mkdir(parents=True, exist_ok=True)
+except (PermissionError, OSError) as e:
+    logging.getLogger(__name__).warning(
+        "Could not create avatar dir %s: %s", settings.avatar_dir, e
+    )
+if settings.avatar_dir.exists():
+    app.mount(
+        "/static/uploads/kids",
+        StaticFiles(directory=settings.avatar_dir),
+        name="kid_avatars",
+    )
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 app.include_router(health_router)
 app.include_router(api_router)

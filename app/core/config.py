@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     # IMPORTANT: override in production with a strong random value.
     secret_key: str = Field(default="dev-only-change-me", alias="SECRET_KEY")
     admin_pin: str | None = Field(default_factory=_load_admin_pin)
+    avatar_dir: Path = Field(default=Path("/data/avatars/kids"), alias="AVATAR_DIR")
 
     @property
     def sqlite_path(self) -> Path | None:
