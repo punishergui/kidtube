@@ -27,7 +27,7 @@ def test_categories_crud(tmp_path: Path) -> None:
         with _client_for_engine(engine) as client:
             create_response = client.post(
                 "/api/categories",
-                json={"name": "Education", "daily_limit_minutes": 45},
+                json={"name": "Science", "daily_limit_minutes": 45},
             )
             list_response = client.get("/api/categories")
 
@@ -37,19 +37,19 @@ def test_categories_crud(tmp_path: Path) -> None:
                 json={"name": "STEM", "daily_limit_minutes": 50},
             )
             delete_response = client.delete(f"/api/categories/{category_id}")
+            list_including_disabled = client.get("/api/categories?include_disabled=true")
     finally:
         app.dependency_overrides.pop(get_session, None)
 
     assert create_response.status_code == 201
     created_payload = create_response.json()
-    assert created_payload["name"] == "Education"
+    assert created_payload["name"] == "Science"
     assert created_payload["enabled"] is True
     assert created_payload["daily_limit_minutes"] == 45
 
     assert list_response.status_code == 200
     listed_categories = list_response.json()
-    assert len(listed_categories) == 1
-    assert listed_categories[0]["name"] == "Education"
+    assert {category["name"] for category in listed_categories} == {"education", "fun", "Science"}
 
     assert patch_response.status_code == 200
     patched_payload = patch_response.json()
@@ -60,6 +60,13 @@ def test_categories_crud(tmp_path: Path) -> None:
     disabled_payload = delete_response.json()
     assert disabled_payload["enabled"] is False
 
+    assert list_including_disabled.status_code == 200
+    categories_with_disabled = list_including_disabled.json()
+    assert any(
+        category["id"] == category_id and category["enabled"] is False
+        for category in categories_with_disabled
+    )
+
 
 def test_category_name_must_be_unique(tmp_path: Path) -> None:
     db_path = tmp_path / "categories-api-unique.db"
@@ -67,19 +74,27 @@ def test_category_name_must_be_unique(tmp_path: Path) -> None:
     run_migrations(engine, Path("app/db/migrations"))
 
     with Session(engine) as session:
-        session.add(Category(name="Music"))
+        music = Category(name="Music")
+        art = Category(name="Art")
+        session.add(music)
+        session.add(art)
         session.commit()
+        session.refresh(music)
+        session.refresh(art)
+        music_id = music.id
+        art_id = art.id
 
     try:
         with _client_for_engine(engine) as client:
             duplicate_create_response = client.post("/api/categories", json={"name": "Music"})
-            duplicate_patch_response = client.patch("/api/categories/1", json={"name": "Music"})
-
-            session = Session(engine)
-            session.add(Category(name="Art"))
-            session.commit()
-            session.close()
-            conflict_patch_response = client.patch("/api/categories/2", json={"name": "Music"})
+            duplicate_patch_response = client.patch(
+                f"/api/categories/{music_id}",
+                json={"name": "Music"},
+            )
+            conflict_patch_response = client.patch(
+                f"/api/categories/{art_id}",
+                json={"name": "Music"},
+            )
     finally:
         app.dependency_overrides.pop(get_session, None)
 

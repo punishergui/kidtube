@@ -26,6 +26,7 @@ class Channel(SQLModel, table=True):
     avatar_url: str | None = None
     banner_url: str | None = None
     category: str | None = None
+    category_id: int | None = Field(default=None, foreign_key="categories.id")
     allowed: bool = False
     blocked: bool = False
     blocked_at: datetime | None = None

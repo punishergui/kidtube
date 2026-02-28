@@ -51,11 +51,27 @@ def list_feed(
             v.published_at AS video_published_at
         FROM videos v
         JOIN channels c ON c.id = v.channel_id
+        LEFT JOIN categories cat ON cat.id = c.category_id
         WHERE c.enabled = 1
           AND c.allowed = 1
           AND c.blocked = 0
+          AND (c.category_id IS NULL OR cat.enabled = 1)
           AND (:channel_id IS NULL OR c.id = :channel_id)
-          AND (:category IS NULL OR c.category = :category)
+          AND (
+            :category IS NULL
+            OR (
+              EXISTS(
+                SELECT 1
+                FROM categories cf
+                WHERE cf.name = :category
+                  AND cf.enabled = 1
+              )
+              AND (
+                (c.category_id IS NOT NULL AND cat.name = :category AND cat.enabled = 1)
+                OR (c.category_id IS NULL AND c.category = :category)
+              )
+            )
+          )
         ORDER BY v.published_at DESC
         LIMIT :limit OFFSET :offset
         """
@@ -88,9 +104,11 @@ def latest_per_channel(session: Session = Depends(get_session)) -> list[FeedItem
             v.published_at AS video_published_at
         FROM channels c
         JOIN videos v ON v.channel_id = c.id
+        LEFT JOIN categories cat ON cat.id = c.category_id
         WHERE c.enabled = 1
           AND c.allowed = 1
           AND c.blocked = 0
+          AND (c.category_id IS NULL OR cat.enabled = 1)
           AND v.id = (
             SELECT vv.id
             FROM videos vv
