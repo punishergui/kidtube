@@ -113,7 +113,7 @@ def ui_sync_redirect() -> RedirectResponse:
     return RedirectResponse(url='/admin/sync', status_code=307)
 
 
-@router.get("/watch/{youtube_id}", response_class=HTMLResponse)
+@router.get("/watch/{youtube_id}", response_class=HTMLResponse, response_model=None)
 def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectResponse:
     kid_id = request.session.get("kid_id")
     if not kid_id:
@@ -173,7 +173,7 @@ def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectRespon
     )
 
 
-@router.get("/blocked/time", response_class=HTMLResponse)
+@router.get("/blocked/time", response_class=HTMLResponse, response_model=None)
 def ui_blocked_time(request: Request) -> HTMLResponse | RedirectResponse:
     kid_id = request.session.get("kid_id")
     if not kid_id:
@@ -192,7 +192,7 @@ def ui_blocked_time(request: Request) -> HTMLResponse | RedirectResponse:
     )
 
 
-@router.get("/blocked/schedule", response_class=HTMLResponse)
+@router.get("/blocked/schedule", response_class=HTMLResponse, response_model=None)
 def ui_blocked_schedule(
     request: Request, unlock_time: str = "later"
 ) -> HTMLResponse | RedirectResponse:
@@ -214,7 +214,7 @@ def ui_blocked_schedule(
     )
 
 
-@router.get("/blocked/pending", response_class=HTMLResponse)
+@router.get("/blocked/pending", response_class=HTMLResponse, response_model=None)
 def ui_blocked_pending(request: Request) -> HTMLResponse | RedirectResponse:
     kid_id = request.session.get("kid_id")
     if not kid_id:
