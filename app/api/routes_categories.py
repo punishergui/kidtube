@@ -106,6 +106,7 @@ def patch_category(
 def disable_category(
     category_id: int,
     archive: bool = Query(default=False),
+    hard_delete: bool = Query(default=False),
     session: Session = Depends(get_session),
 ) -> Category:
     category = session.get(Category, category_id)
@@ -126,7 +127,7 @@ def disable_category(
     if in_use and not archive:
         raise HTTPException(status_code=409, detail="Category is in use; archive instead")
 
-    if not in_use and not archive:
+    if hard_delete and not in_use:
         session.delete(category)
         session.commit()
         return CategoryRead.model_validate(

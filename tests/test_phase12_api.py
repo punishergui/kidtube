@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -86,7 +86,7 @@ def test_category_delete_or_archive_when_used(tmp_path: Path) -> None:
         with _client_for_engine(engine) as client:
             conflict = client.delete("/api/categories/1")
             archived = client.delete("/api/categories/1?archive=true")
-            deleted = client.delete("/api/categories/2")
+            deleted = client.delete("/api/categories/2?hard_delete=true")
     finally:
         app.dependency_overrides.pop(get_session, None)
 
@@ -133,7 +133,7 @@ def test_recent_logs_include_kid_name(tmp_path: Path) -> None:
     assert response.json()[0]["kid_name"] == "Luna"
 
 
-def test_schedule_sunday_first_enforcement(tmp_path: Path) -> None:
+def test_schedule_serialization_and_enforcement(tmp_path: Path) -> None:
     db_path = tmp_path / "phase12-schedule.db"
     engine = create_engine(f"sqlite:///{db_path}")
     run_migrations(engine, Path("app/db/migrations"))
@@ -143,12 +143,12 @@ def test_schedule_sunday_first_enforcement(tmp_path: Path) -> None:
         session.execute(
             text(
                 "INSERT INTO kid_schedules(kid_id, day_of_week, start_time, end_time) "
-                "VALUES (1, 0, '09:00', '10:00')"
+                "VALUES (1, 6, '09:00', '10:00')"
             )
         )
         session.commit()
 
-        sunday = datetime(2024, 6, 2, 9, 30, tzinfo=UTC)
-        monday = datetime(2024, 6, 3, 9, 30, tzinfo=UTC)
+        sunday = datetime(2024, 6, 2, 9, 30, tzinfo=timezone.utc)  # noqa: UP017
+        monday = datetime(2024, 6, 3, 9, 30, tzinfo=timezone.utc)  # noqa: UP017
         assert is_in_any_schedule(session, kid_id=1, now=sunday) is True
         assert is_in_any_schedule(session, kid_id=1, now=monday) is True
