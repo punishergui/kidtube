@@ -4,14 +4,14 @@
 <section class="page-head">
   <h1>Admin · Channels + Categories</h1>
 </section>
-<section class="panel form-panel categories-form-panel">
-  <h2>Categories</h2>
-  <form id="create-category-form" class="inline-form">
+<section class="panel categories-shell">
+  <div class="section-head"><h2>Categories</h2><button id="toggle-add-category" class="btn-primary" type="button">Add Category</button></div>
+  <form id="create-category-form" class="inline-form" hidden>
     <input name="name" placeholder="New category name" required />
     <input name="daily_limit_minutes" type="number" min="0" placeholder="Default daily minutes (optional)" />
-    <button type="submit" class="btn-primary">Add category</button>
+    <button type="submit" class="btn-primary">Save</button>
   </form>
-  <section id="categories-body" class="admin-list"></section>
+  <section id="categories-body" class="category-card-grid"></section>
 </section>
 <form id="channel-lookup-form" class="panel form-panel">
   <input name="query" placeholder="@channel, channel ID, or URL" required />
@@ -23,8 +23,8 @@
 <section id="channel-preview" class="panel channel-preview" hidden></section>
 <section id="channel-filters" class="category-pills">
   <button class="pill active" data-filter="all" type="button">All</button>
-  <button class="pill" data-filter="whitelisted" type="button">Whitelisted</button>
-  <button class="pill" data-filter="blacklisted" type="button">Blacklisted</button>
+  <button class="pill" data-filter="whitelisted" type="button">Allowed</button>
+  <button class="pill" data-filter="blacklisted" type="button">Blocked</button>
   <button class="pill" data-filter="disabled" type="button">Disabled</button>
 </section>
 <section id="channels-body" class="admin-list"></section>

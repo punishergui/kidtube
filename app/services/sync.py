@@ -188,6 +188,8 @@ def store_videos(session: Session, channel_db_id: int | None, videos: list[dict[
                 title=item["title"],
                 thumbnail_url=item["thumbnail_url"],
                 published_at=published_at,
+                duration_seconds=item.get("duration_seconds"),
+                is_short=bool(item.get("is_short", False)),
             )
         )
 

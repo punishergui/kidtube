@@ -56,27 +56,10 @@ def build_approval_embed_payload(
         embed["thumbnail"] = {"url": thumbnail_url}
 
     return {
+        "content": f"New {request_type} approval request from {safe_kid}",
         "embeds": [embed],
-        "components": [
-            {
-                "type": 1,
-                "components": [
-                    {
-                        "type": 2,
-                        "style": 3,
-                        "label": "Approve",
-                        "custom_id": f"request:{request_id}:approve",
-                    },
-                    {
-                        "type": 2,
-                        "style": 4,
-                        "label": "Deny",
-                        "custom_id": f"request:{request_id}:deny",
-                    },
-                ],
-            }
-        ],
     }
+
 
 
 def _verify_signature(body: bytes, signature: str, timestamp: str) -> None:

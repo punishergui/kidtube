@@ -19,6 +19,7 @@ class FeedItem(BaseModel):
     channel_title: str | None
     channel_avatar_url: str | None
     channel_category: str | None
+    channel_category_id: int | None = None
     video_youtube_id: str
     video_title: str
     video_thumbnail_url: str
@@ -76,6 +77,7 @@ def list_feed(
             c.title AS channel_title,
             c.avatar_url AS channel_avatar_url,
             c.category AS channel_category,
+            c.category_id AS channel_category_id,
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
@@ -149,6 +151,7 @@ def latest_per_channel(
             c.title AS channel_title,
             c.avatar_url AS channel_avatar_url,
             c.category AS channel_category,
+            c.category_id AS channel_category_id,
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
@@ -212,6 +215,7 @@ def list_shorts(
                 c.title AS channel_title,
                 c.avatar_url AS channel_avatar_url,
                 c.category AS channel_category,
+                c.category_id AS channel_category_id,
                 v.youtube_id AS video_youtube_id,
                 v.title AS video_title,
                 v.thumbnail_url AS video_thumbnail_url,

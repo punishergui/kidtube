@@ -974,3 +974,49 @@ textarea:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.row-nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.row-nav-btn {
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+@media (pointer: coarse) {
+  .row-nav { display: none; }
+}
+
+.categories-shell {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.category-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.category-card {
+  padding: var(--space-3);
+}
+
+.pill-muted {
+  background: #3a425f;
+  color: #d2d8ee;
+}
+
+.channel-card {
+  padding: var(--space-4);
+}
+
+.schedule-pill {
+  white-space: nowrap;
+}

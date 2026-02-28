@@ -144,6 +144,13 @@ async function fillKidExtras(kidId) {
 function bindScheduleGridEvents() {
   body.querySelectorAll('button[data-open-schedule-form]').forEach((button) => {
     button.addEventListener('click', () => {
+      body.querySelectorAll('[data-schedule-form]').forEach((formEl) => {
+        formEl.hidden = true;
+      });
+      body.querySelectorAll('button[data-open-schedule-form]').forEach((openBtn) => {
+        openBtn.hidden = false;
+      });
+
       const key = button.dataset.openScheduleForm;
       const formEl = body.querySelector(`[data-schedule-form="${key}"]`);
       if (!formEl) return;

@@ -13,6 +13,16 @@ function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
+function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '—';
+  const s = Math.floor(seconds);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
 async function load() {
   try {
     const sessionState = await requestJson('/api/session');
@@ -33,7 +43,7 @@ async function load() {
     `;
 
     grid.innerHTML = rows.length
-      ? rows.map((item) => `<a class="video-card panel" href="/watch/${item.video_youtube_id}"><img class="thumb" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" /><h3>${escapeHtml(item.video_title)}</h3></a>`).join('')
+      ? rows.map((item) => `<a class="video-card panel" href="/watch/${item.video_youtube_id}"><img class="thumb" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" /><div class="card-body"><h3>${escapeHtml(item.video_title)}</h3><p class="video-meta">${formatDuration(item.video_duration_seconds)}</p></div></a>`).join('')
       : '<article class="empty-state panel">No videos yet.</article>';
   } catch (error) {
     showToast(`Unable to load channel: ${error.message}`, 'error');

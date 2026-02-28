@@ -91,9 +91,20 @@ async def _send_discord_request_notification(request_row: Request, session: Sess
     try:
         async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
             response = await client.post(settings.discord_approval_webhook_url, json=payload)
-            response.raise_for_status()
-    except Exception:
-        logger.exception("discord_webhook_send_failed", extra={"request_id": request_row.id})
+            if response.status_code >= 400:
+                logger.error(
+                    "discord_webhook_send_failed",
+                    extra={
+                        "request_id": request_row.id,
+                        "status_code": response.status_code,
+                        "response_body": response.text,
+                    },
+                )
+    except httpx.HTTPError as exc:
+        logger.error(
+            "discord_webhook_send_failed",
+            extra={"request_id": request_row.id, "error": str(exc)},
+        )
 
 
 def _cooldown_retry_after_seconds(session: Session, kid_id: int | None) -> int | None:

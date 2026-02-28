@@ -25,6 +25,15 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
+def _kid_avatar_url(kid_id: int, avatar_url: str | None) -> str | None:
+    if not avatar_url:
+        return None
+    avatar_path = Path(f"/data/avatars/kids/{kid_id}/avatar.png")
+    if avatar_url.startswith("/static/uploads/kids/") and not avatar_path.exists():
+        return None
+    return avatar_url
+
+
 def render_page(request: Request, template_name: str, **context: str) -> HTMLResponse:
     response = templates.TemplateResponse(
         request=request,
@@ -69,7 +78,7 @@ def ui_dashboard(request: Request) -> HTMLResponse | RedirectResponse:
         request.session.pop("pending_kid_id", None)
         return RedirectResponse(url="/", status_code=307)
 
-    current_kid = {"name": kid.name, "avatar_url": kid.avatar_url}
+    current_kid = {"name": kid.name, "avatar_url": _kid_avatar_url(kid.id or 0, kid.avatar_url)}
     return render_page(
         request,
         "dashboard.html",
@@ -179,7 +188,7 @@ def ui_blocked_time(request: Request) -> HTMLResponse | RedirectResponse:
     return render_page(
         request,
         "blocked_time.html",
-        current_kid={"name": kid.name, "avatar_url": kid.avatar_url},
+        current_kid={"name": kid.name, "avatar_url": _kid_avatar_url(kid.id or 0, kid.avatar_url)},
     )
 
 
@@ -201,7 +210,7 @@ def ui_blocked_schedule(
         request,
         "blocked_schedule.html",
         unlock_time=unlock_time,
-        current_kid={"name": kid.name, "avatar_url": kid.avatar_url},
+        current_kid={"name": kid.name, "avatar_url": _kid_avatar_url(kid.id or 0, kid.avatar_url)},
     )
 
 
@@ -220,7 +229,7 @@ def ui_blocked_pending(request: Request) -> HTMLResponse | RedirectResponse:
     return render_page(
         request,
         "blocked_pending.html",
-        current_kid={"name": kid.name, "avatar_url": kid.avatar_url},
+        current_kid={"name": kid.name, "avatar_url": _kid_avatar_url(kid.id or 0, kid.avatar_url)},
     )
 
 

@@ -82,15 +82,25 @@ class KidCategoryLimitUpdate(BaseModel):
     daily_limit_minutes: int = Field(ge=0)
 
 
+AVATAR_ROOT = Path("/data/avatars/kids")
+
+
 def _avatar_path(kid_id: int) -> Path:
-    app_dir = Path(__file__).resolve().parents[1]
-    upload_dir = app_dir / "static" / "uploads" / "kids" / str(kid_id)
+    upload_dir = AVATAR_ROOT / str(kid_id)
     return upload_dir / "avatar.png"
 
 
 def _delete_avatar_file(kid_id: int) -> None:
     avatar_path = _avatar_path(kid_id)
     avatar_path.unlink(missing_ok=True)
+
+
+def _safe_avatar_url(kid_id: int, avatar_url: str | None) -> str | None:
+    if not avatar_url:
+        return None
+    if avatar_url.startswith('/static/uploads/kids/') and not _avatar_path(kid_id).exists():
+        return None
+    return avatar_url
 
 
 def _assert_kid_exists(session: Session, kid_id: int) -> Kid:
@@ -103,7 +113,16 @@ def _assert_kid_exists(session: Session, kid_id: int) -> Kid:
 @router.get("", response_model=list[KidRead])
 def list_kids(session: Session = Depends(get_session)) -> list[Kid]:
     kids = session.exec(select(Kid).order_by(Kid.id)).all()
-    return [KidRead.model_validate({**kid.model_dump(), "has_pin": bool(kid.pin)}) for kid in kids]
+    return [
+        KidRead.model_validate(
+            {
+                **kid.model_dump(),
+                "avatar_url": _safe_avatar_url(kid.id or 0, kid.avatar_url),
+                "has_pin": bool(kid.pin),
+            }
+        )
+        for kid in kids
+    ]
 
 
 @router.post("", response_model=KidRead, status_code=status.HTTP_201_CREATED)
@@ -112,7 +131,13 @@ def create_kid(payload: KidCreate, session: Session = Depends(get_session)) -> K
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return KidRead.model_validate({**kid.model_dump(), "has_pin": bool(kid.pin)})
+    return KidRead.model_validate(
+        {
+            **kid.model_dump(),
+            "avatar_url": _safe_avatar_url(kid.id or 0, kid.avatar_url),
+            "has_pin": bool(kid.pin),
+        }
+    )
 
 
 @router.patch("/{kid_id}", response_model=KidRead)
@@ -125,7 +150,13 @@ def patch_kid(kid_id: int, payload: KidUpdate, session: Session = Depends(get_se
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return KidRead.model_validate({**kid.model_dump(), "has_pin": bool(kid.pin)})
+    return KidRead.model_validate(
+        {
+            **kid.model_dump(),
+            "avatar_url": _safe_avatar_url(kid.id or 0, kid.avatar_url),
+            "has_pin": bool(kid.pin),
+        }
+    )
 
 
 @router.put("/{kid_id}/pin")
@@ -352,19 +383,24 @@ async def upload_kid_avatar(
     if (file.content_type or "") not in ALLOWED_AVATAR_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported avatar file type")
 
-    app_dir = Path(__file__).resolve().parents[1]
-    upload_dir = app_dir / "static" / "uploads" / "kids" / str(kid_id)
+    avatar_path = _avatar_path(kid_id)
+    upload_dir = avatar_path.parent
     upload_dir.mkdir(parents=True, exist_ok=True)
-    avatar_path = upload_dir / "avatar.png"
     data = await file.read()
     avatar_path.write_bytes(data)
 
-    timestamp = int(datetime.utcnow().timestamp())
+    timestamp = int(datetime.now(datetime.UTC).timestamp())
     kid.avatar_url = f"/static/uploads/kids/{kid_id}/avatar.png?v={timestamp}"
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return KidRead.model_validate(
+        {
+            **kid.model_dump(),
+            "avatar_url": _safe_avatar_url(kid.id or 0, kid.avatar_url),
+            "has_pin": bool(kid.pin),
+        }
+    )
 
 
 @router.delete("/{kid_id}/avatar", response_model=KidRead)
@@ -376,4 +412,10 @@ def delete_kid_avatar(kid_id: int, session: Session = Depends(get_session)) -> K
     session.add(kid)
     session.commit()
     session.refresh(kid)
-    return kid
+    return KidRead.model_validate(
+        {
+            **kid.model_dump(),
+            "avatar_url": _safe_avatar_url(kid.id or 0, kid.avatar_url),
+            "has_pin": bool(kid.pin),
+        }
+    )
