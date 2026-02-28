@@ -22,14 +22,34 @@ jobs:
         run: pytest
 
       - name: Smoke start + HTTP checks
+        env:
+          KIDTUBE_DB_PATH: /tmp/kidtube.db
         run: |
-          mkdir -p ./.data
-          export DATABASE_URL="sqlite:///$GITHUB_WORKSPACE/.data/kidtube.db"
+          set -euo pipefail
 
-          uvicorn app.main:app --host 127.0.0.1 --port 2018 &
-          APP_PID=$!
-          trap 'kill $APP_PID' EXIT
+          uvicorn app.main:app --host 127.0.0.1 --port 2018 --no-access-log > uvicorn.log 2>&1 &
+          UVICORN_PID=$!
 
-          sleep 3
+          healthy=0
+          for i in {1..40}; do
+            if curl -fsS http://127.0.0.1:2018/health >/dev/null; then
+              healthy=1
+              break
+            fi
+            sleep 0.25
+          done
+
+          if [ "$healthy" -ne 1 ]; then
+            echo "Smoke check failed: app did not become healthy in time."
+            echo "--- uvicorn.log (tail) ---"
+            tail -n 200 uvicorn.log || true
+            kill "$UVICORN_PID" 2>/dev/null || true
+            wait "$UVICORN_PID" 2>/dev/null || true
+            exit 1
+          fi
+
           curl -fsS http://127.0.0.1:2018/health
           curl -fsS http://127.0.0.1:2018/ > /dev/null
+
+          kill "$UVICORN_PID" 2>/dev/null || true
+          wait "$UVICORN_PID" 2>/dev/null || true
