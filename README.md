@@ -45,6 +45,7 @@ This compose example intentionally avoids hardcoded domains.
 | `DATABASE_URL` | `sqlite:////data/kidtube.db` | SQLAlchemy DB URL |
 | `LOG_LEVEL` | `INFO` | Logging level |
 | `DISCORD_PUBLIC_KEY` | *(empty)* | Discord app public key for Ed25519 verification |
+| `DISCORD_APPROVAL_WEBHOOK_URL` | *(empty)* | Incoming Discord webhook URL used to post approval requests with buttons |
 | `YOUTUBE_API_KEY` | *(empty)* | YouTube Data API key (required for handle/video URL resolution and sync) |
 | `KIDTUBE_SYNC_ENABLED` | `true` | Enables/disables background periodic channel refresh task |
 | `KIDTUBE_SYNC_INTERVAL_SECONDS` | `900` | Background refresh interval for channel/video cache |
@@ -65,6 +66,8 @@ This compose example intentionally avoids hardcoded domains.
 - `PATCH /api/channels/{id}`
 - `POST /api/sync/run` → triggers an immediate refresh pass for eligible channels (`enabled=true`, `allowed=true`, `blocked=false`)
 - `POST /discord/interactions`
+- `POST /api/requests/channel-allow`
+- `POST /api/requests/video-allow`
 
 ### Example curl commands
 

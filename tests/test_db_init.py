@@ -23,6 +23,7 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
         "kid_bonus_time",
         "search_log",
         "requests",
+        "video_approvals",
         "schema_migrations",
     }
 
@@ -34,6 +35,7 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
             row[1] for row in session.execute(text("PRAGMA table_info(watch_log)"))
         }
         indexes = {row[1] for row in session.execute(text("PRAGMA index_list('videos')"))}
+        request_columns = {row[1] for row in session.execute(text("PRAGMA table_info(requests)"))}
 
     assert expected_tables.issubset(found_tables)
     assert {
@@ -51,6 +53,7 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
     assert {"seconds_watched", "created_at", "category_id", "started_at"}.issubset(
         watch_log_columns
     )
+    assert {"resolved_at", "youtube_id", "type"}.issubset(request_columns)
 
     with Session(engine) as session:
         channel_indexes = {

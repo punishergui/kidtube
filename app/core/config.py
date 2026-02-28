@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     database_url: str = Field(default_factory=_default_database_url, alias="DATABASE_URL")
     log_level: str = "INFO"
     discord_public_key: str | None = Field(default=None, alias="DISCORD_PUBLIC_KEY")
+    discord_approval_webhook_url: str | None = Field(
+        default=None, alias="DISCORD_APPROVAL_WEBHOOK_URL"
+    )
     youtube_api_key: str | None = Field(default=None, alias="YOUTUBE_API_KEY")
     sync_enabled: bool = Field(
         default=True,
