@@ -31,7 +31,7 @@ def ensure_db_parent_writable(db_path: Path) -> None:
 
     try:
         parent.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
+    except (PermissionError, OSError) as exc:
         raise RuntimeError(
             f"Database directory '{parent}' is not writable. "
             "Fix volume ownership/permissions or set KIDTUBE_DB_PATH to a writable path."

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import stat
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -31,10 +33,29 @@ async def lifespan(app: FastAPI):
     setup_logging(settings.log_level)
     sqlite_path = settings.sqlite_path
     if sqlite_path:
+        parent = sqlite_path.parent
+        parent_stat: str | None = None
+        if parent.exists():
+            try:
+                mode = stat.S_IMODE(parent.stat().st_mode)
+                parent_stat = oct(mode)
+            except OSError as exc:
+                parent_stat = f"unavailable ({exc})"
         try:
             ensure_db_parent_writable(sqlite_path)
         except Exception as exc:
-            logger.error("database startup check failed", extra={"error": str(exc)})
+            logger.error(
+                "database startup check failed",
+                extra={
+                    "error": str(exc),
+                    "db_path": str(sqlite_path),
+                    "uid": os.getuid(),
+                    "gid": os.getgid(),
+                    "parent": str(parent),
+                    "parent_exists": parent.exists(),
+                    "parent_permissions": parent_stat,
+                },
+            )
             raise RuntimeError(str(exc)) from exc
 
     run_migrations(engine, Path(__file__).parent / "db" / "migrations")
