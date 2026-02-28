@@ -193,7 +193,9 @@ def ui_blocked_time(request: Request) -> HTMLResponse | RedirectResponse:
 
 
 @router.get("/blocked/schedule", response_class=HTMLResponse)
-def ui_blocked_schedule(request: Request, unlock_time: str = "later") -> HTMLResponse | RedirectResponse:
+def ui_blocked_schedule(
+    request: Request, unlock_time: str = "later"
+) -> HTMLResponse | RedirectResponse:
     kid_id = request.session.get("kid_id")
     if not kid_id:
         return RedirectResponse(url="/", status_code=307)
