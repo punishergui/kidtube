@@ -3,7 +3,6 @@ import { formatDate, requestJson, showToast } from '/static/app.js';
 const container = document.getElementById('watch-container');
 const youtubeId = container?.dataset.youtubeId;
 const embedOrigin = container?.dataset.embedOrigin;
-const startedAt = Date.now();
 let accumulatedSeconds = 0;
 let lastTick = Date.now();
 let kidId = null;
@@ -107,6 +106,49 @@ async function flushWatchLog(force = false) {
   }
 }
 
+function updateNowPlaying(kid, minutesLeftText) {
+  const overlay = document.getElementById('watch-now-playing');
+  if (!overlay) return;
+
+  const avatar = document.getElementById('watch-now-playing-avatar');
+  const kidName = document.getElementById('watch-now-playing-name');
+  const minutesLeft = document.getElementById('watch-now-playing-minutes');
+
+  if (avatar) avatar.src = kid?.avatar_url || '';
+  if (kidName) kidName.textContent = kid?.name || 'Kid';
+  if (minutesLeft) minutesLeft.textContent = minutesLeftText;
+  overlay.hidden = false;
+}
+
+async function loadNowPlaying(sessionState) {
+  if (!sessionState?.kid_id) {
+    updateNowPlaying(null, 'Session unavailable');
+    return;
+  }
+
+  let kid = null;
+  let minutesLeftText = 'Time left unavailable';
+
+  try {
+    const kids = await requestJson('/api/kids');
+    kid = (kids || []).find((k) => k.id === sessionState.kid_id) || null;
+  } catch {
+    // no-op
+  }
+
+  try {
+    const limits = await requestJson(`/api/kids/${sessionState.kid_id}/limits`);
+    if (typeof limits.remaining_seconds === 'number') {
+      const minutes = Math.max(0, Math.floor(limits.remaining_seconds / 60));
+      minutesLeftText = `${minutes} min left today`;
+    }
+  } catch {
+    // no-op
+  }
+
+  updateNowPlaying(kid, minutesLeftText);
+}
+
 async function loadVideo() {
   if (!youtubeId) {
     renderNotFound();
@@ -121,6 +163,16 @@ async function loadVideo() {
     container.innerHTML = `
       <section class="player-wrap panel">
         <div id="watch-player"></div>
+        <div id="watch-now-playing" class="watch-now-playing" hidden>
+          <div class="watch-now-playing-left">
+            <img id="watch-now-playing-avatar" class="watch-now-playing-avatar" alt="" src="" />
+            <div class="watch-now-playing-meta">
+              <strong id="watch-now-playing-name">Kid</strong>
+              <span id="watch-now-playing-minutes">Loading time left…</span>
+            </div>
+          </div>
+          <a class="btn-secondary" href="/dashboard">Home</a>
+        </div>
       </section>
       <article id="watch-loading" class="panel watch-details">
         <h2>Loading video…</h2>
@@ -144,10 +196,12 @@ async function loadVideo() {
       </article>
     `;
 
+    await loadNowPlaying(sessionState);
+
     heartbeatHandle = window.setInterval(async () => {
       accrueWatchTime();
       await flushWatchLog(false);
-    }, 10000);
+    }, 30000);
 
     const yt = await loadYoutubeIframeApi();
     const player = new yt.Player('watch-player', {
@@ -187,7 +241,15 @@ window.addEventListener('visibilitychange', () => {
 
 window.addEventListener('pagehide', () => {
   accrueWatchTime();
-  void flushWatchLog(true);
+  if (kidId && youtubeId && accumulatedSeconds > 0) {
+    const delta = Math.max(1, accumulatedSeconds);
+    accumulatedSeconds = 0;
+    navigator.sendBeacon('/api/playback/watch/log', JSON.stringify({
+      kid_id: kidId,
+      video_id: youtubeId,
+      seconds_delta: delta,
+    }));
+  }
   if (heartbeatHandle) window.clearInterval(heartbeatHandle);
 });
 

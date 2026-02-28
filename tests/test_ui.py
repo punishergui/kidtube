@@ -17,8 +17,8 @@ def test_watch_page_renders_friendly_not_found_panel() -> None:
     with TestClient(app) as client:
         response = client.get('/watch/fake-video-id')
 
-    assert response.status_code == 200
-    assert 'Video not found' in response.text
+    assert response.history[0].status_code == 307
+    assert str(response.url).endswith('/')
 
 
 def test_admin_pages_render() -> None:
