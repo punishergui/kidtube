@@ -1,45 +1,13 @@
-import os
 from pathlib import Path
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.db.paths import resolve_db_path
+
 
 def _default_database_url() -> str:
-    configured_path = os.getenv("KIDTUBE_DB_PATH") or os.getenv("SQLITE_PATH")
-    if configured_path:
-        return f"sqlite:///{_select_writable_db_path(Path(configured_path))}"
-
-    default_paths = [Path.cwd() / "data" / "kidtube.db", Path("/tmp/kidtube.db")]
-    for candidate in default_paths:
-        if _is_db_parent_writable(candidate):
-            return f"sqlite:///{candidate}"
-
-    return "sqlite:///kidtube.db"
-
-
-def _select_writable_db_path(configured_path: Path) -> Path:
-    if _is_db_parent_writable(configured_path):
-        return configured_path
-
-    fallback_paths = [
-        Path.cwd() / "data" / "kidtube.db",
-        Path("/tmp/kidtube.db"),
-        Path("kidtube.db"),
-    ]
-    for candidate in fallback_paths:
-        if _is_db_parent_writable(candidate):
-            return candidate
-
-    return configured_path
-
-
-def _is_db_parent_writable(db_path: Path) -> bool:
-    try:
-        db_path.parent.mkdir(parents=True, exist_ok=True)
-    except OSError:
-        return False
-    return os.access(db_path.parent, os.W_OK)
+    return f"sqlite:///{resolve_db_path()}"
 
 
 class Settings(BaseSettings):
