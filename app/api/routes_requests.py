@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlmodel import Session
@@ -16,6 +17,7 @@ from app.db.session import get_session
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+REQUEST_COOLDOWN_SECONDS = 30
 
 
 class RequestCreate(BaseModel):
@@ -94,6 +96,41 @@ async def _send_discord_request_notification(request_row: Request, session: Sess
         logger.exception("discord_webhook_send_failed", extra={"request_id": request_row.id})
 
 
+def _cooldown_retry_after_seconds(session: Session, kid_id: int | None) -> int | None:
+    if kid_id is None:
+        return None
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=REQUEST_COOLDOWN_SECONDS)  # noqa: UP017
+    latest_row = session.execute(
+        text(
+            """
+            SELECT created_at
+            FROM requests
+            WHERE kid_id = :kid_id
+              AND created_at >= :cutoff
+            ORDER BY created_at DESC, id DESC
+            LIMIT 1
+            """
+        ),
+        {"kid_id": kid_id, "cutoff": cutoff.isoformat()},
+    ).first()
+    if not latest_row:
+        return None
+
+    created_at = latest_row[0]
+    if not isinstance(created_at, datetime):
+        try:
+            created_at = datetime.fromisoformat(str(created_at).replace("Z", "+00:00"))
+        except ValueError:
+            return REQUEST_COOLDOWN_SECONDS
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=datetime.UTC)
+
+    elapsed = (datetime.now(timezone.utc) - created_at).total_seconds()  # noqa: UP017
+    retry_after = REQUEST_COOLDOWN_SECONDS - int(elapsed)
+    return retry_after if retry_after > 0 else None
+
+
 def _apply_request_action(session: Session, request_row: Request, action: str) -> Request:
     now = datetime.now(timezone.utc)  # noqa: UP017
     if action == "deny":
@@ -152,7 +189,15 @@ def _apply_request_action(session: Session, request_row: Request, action: str) -
 async def create_channel_allow_request(
     payload: RequestCreate,
     session: Session = Depends(get_session),
-) -> Request:
+) -> Request | JSONResponse:
+    retry_after = _cooldown_retry_after_seconds(session, payload.kid_id)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "cooldown", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)},
+        )
+
     request_row = Request(type="channel", youtube_id=payload.youtube_id, kid_id=payload.kid_id)
     session.add(request_row)
     session.commit()
@@ -165,7 +210,15 @@ async def create_channel_allow_request(
 async def create_video_allow_request(
     payload: RequestCreate,
     session: Session = Depends(get_session),
-) -> Request:
+) -> Request | JSONResponse:
+    retry_after = _cooldown_retry_after_seconds(session, payload.kid_id)
+    if retry_after:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "cooldown", "retry_after": retry_after},
+            headers={"Retry-After": str(retry_after)},
+        )
+
     request_row = Request(type="video", youtube_id=payload.youtube_id, kid_id=payload.kid_id)
     session.add(request_row)
     session.commit()
