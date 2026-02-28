@@ -112,3 +112,25 @@ def test_category_daily_limit_minutes_validation(tmp_path: Path) -> None:
     assert create_response.status_code == 201
     assert create_response.json()["enabled"] is True
     assert invalid_patch_response.status_code == 422
+
+
+def test_category_name_cannot_be_blank(tmp_path: Path) -> None:
+    db_path = tmp_path / "categories-api-blank.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    try:
+        with _client_for_engine(engine) as client:
+            invalid_create_response = client.post("/api/categories", json={"name": "   "})
+            create_response = client.post("/api/categories", json={"name": "Science"})
+            category_id = create_response.json()["id"]
+            invalid_patch_response = client.patch(
+                f"/api/categories/{category_id}",
+                json={"name": ""},
+            )
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert invalid_create_response.status_code == 400
+    assert invalid_create_response.json()["detail"] == "Category name cannot be blank"
+    assert invalid_patch_response.status_code == 422

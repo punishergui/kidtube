@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
@@ -12,18 +12,20 @@ router = APIRouter()
 
 
 class CategoryCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1)
     enabled: bool = True
     daily_limit_minutes: int | None = Field(default=None, ge=0)
 
 
 class CategoryUpdate(BaseModel):
-    name: str | None = None
+    name: str | None = Field(default=None, min_length=1)
     enabled: bool | None = None
     daily_limit_minutes: int | None = Field(default=None, ge=0)
 
 
 class CategoryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     enabled: bool
@@ -38,11 +40,15 @@ def list_categories(session: Session = Depends(get_session)) -> list[Category]:
 
 @router.post("", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
 def create_category(payload: CategoryCreate, session: Session = Depends(get_session)) -> Category:
-    existing_category = session.exec(select(Category).where(Category.name == payload.name)).first()
+    category_name = payload.name.strip()
+    if not category_name:
+        raise HTTPException(status_code=400, detail="Category name cannot be blank")
+
+    existing_category = session.exec(select(Category).where(Category.name == category_name)).first()
     if existing_category:
         raise HTTPException(status_code=409, detail="Category name must be unique")
 
-    category = Category.model_validate(payload)
+    category = Category.model_validate(payload.model_copy(update={"name": category_name}))
     session.add(category)
     try:
         session.commit()
@@ -65,6 +71,12 @@ def patch_category(
 
     updates = payload.model_dump(exclude_unset=True)
     new_name = updates.get("name")
+    if new_name is not None:
+        new_name = new_name.strip()
+        if not new_name:
+            raise HTTPException(status_code=400, detail="Category name cannot be blank")
+        updates["name"] = new_name
+
     if new_name and new_name != category.name:
         existing_category = session.exec(select(Category).where(Category.name == new_name)).first()
         if existing_category:
