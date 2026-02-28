@@ -25,7 +25,10 @@ async def lifespan(_app: FastAPI):
     setup_logging(settings.log_level)
     sqlite_path = settings.sqlite_path
     if sqlite_path:
-        Path(sqlite_path).parent.mkdir(parents=True, exist_ok=True)
+        try:
+            Path(sqlite_path).parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
 
     run_migrations(engine, Path(__file__).parent / "db" / "migrations")
 
