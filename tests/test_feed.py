@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from datetime import datetime as real_datetime
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -456,7 +457,7 @@ def test_feed_returns_empty_when_kid_outside_schedule_window(monkeypatch, tmp_pa
                 channel_id=channel.id,
                 title="Schedule blocked feed",
                 thumbnail_url="https://img.example/schedule-feed.jpg",
-                published_at=datetime(2024, 1, 1, 8, 0, tzinfo=datetime.UTC),
+                published_at=real_datetime(2024, 1, 1, 8, 0, tzinfo=real_datetime.UTC),
             )
         )
         session.commit()
