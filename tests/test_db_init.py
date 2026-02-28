@@ -22,14 +22,10 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
     }
 
     with Session(engine) as session:
-        rows = session.exec(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        rows = session.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
         found_tables = {row[0] for row in rows}
-        channel_columns = {
-            row[1] for row in session.exec(text("PRAGMA table_info(channels)"))
-        }
-        indexes = {
-            row[1] for row in session.exec(text("PRAGMA index_list('videos')"))
-        }
+        channel_columns = {row[1] for row in session.execute(text("PRAGMA table_info(channels)"))}
+        indexes = {row[1] for row in session.execute(text("PRAGMA index_list('videos')"))}
 
     assert expected_tables.issubset(found_tables)
     assert {
@@ -45,8 +41,6 @@ def test_migrations_create_phase_one_tables(tmp_path: Path) -> None:
     assert "idx_videos_channel_published_at" in indexes
 
     with Session(engine) as session:
-        channel_indexes = {
-            row[1] for row in session.exec(text("PRAGMA index_list('channels')"))
-        }
+        channel_indexes = {row[1] for row in session.execute(text("PRAGMA index_list('channels')"))}
 
     assert "idx_channels_allowed_blocked_enabled" in channel_indexes
