@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
-from app.services.limits import assert_under_limit
+from app.services.limits import assert_schedule_allowed, assert_under_limit
 
 router = APIRouter()
 
@@ -51,11 +51,17 @@ def get_video(
         raise HTTPException(status_code=404, detail="Video not found")
 
     if kid_id is not None:
+        now = datetime.now(timezone.utc)  # noqa: UP017
+        assert_schedule_allowed(
+            session,
+            kid_id=kid_id,
+            now=now,
+        )
         assert_under_limit(
             session,
             kid_id=kid_id,
             category_id=row["category_id"],
-            now=datetime.now(timezone.utc),  # noqa: UP017
+            now=now,
         )
 
     return VideoRead.model_validate(row)

@@ -414,3 +414,58 @@ def test_feed_returns_empty_when_kid_is_over_category_limit(tmp_path: Path) -> N
 
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_feed_returns_empty_when_kid_outside_schedule_window(monkeypatch, tmp_path: Path) -> None:
+    class _FakeDateTime:
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2024, 1, 1, 12, 0, tzinfo=tz)
+
+    monkeypatch.setattr("app.api.routes_feed.datetime", _FakeDateTime)
+
+    db_path = tmp_path / "feed-schedule-test.db"
+    engine = create_engine(f"sqlite:///{db_path}")
+    run_migrations(engine, Path("app/db/migrations"))
+
+    with Session(engine) as session:
+        kid_id = session.execute(text("INSERT INTO kids(name) VALUES ('Mia')")).lastrowid
+        session.execute(
+            text(
+                """
+                INSERT INTO kid_schedules(kid_id, day_of_week, start_time, end_time)
+                VALUES (:kid_id, :day_of_week, '00:00', '00:01')
+                """
+            ),
+            {"kid_id": kid_id, "day_of_week": 0},
+        )
+
+        channel = Channel(
+            youtube_id="UCschedulefeed00000000000",
+            title="Schedule Feed",
+            resolve_status="ok",
+            allowed=True,
+        )
+        session.add(channel)
+        session.commit()
+        session.refresh(channel)
+
+        session.add(
+            Video(
+                youtube_id="vid-schedule-feed",
+                channel_id=channel.id,
+                title="Schedule blocked feed",
+                thumbnail_url="https://img.example/schedule-feed.jpg",
+                published_at=datetime(2024, 1, 1, 8, 0, tzinfo=datetime.UTC),
+            )
+        )
+        session.commit()
+
+    try:
+        with _test_client_for_engine(engine) as client:
+            response = client.get(f"/api/feed?kid_id={kid_id}")
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 200
+    assert response.json() == []

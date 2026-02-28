@@ -21,12 +21,16 @@ class KidCreate(BaseModel):
     name: str
     avatar_url: str | None = None
     daily_limit_minutes: int | None = None
+    bedtime_start: str | None = None
+    bedtime_end: str | None = None
 
 
 class KidUpdate(BaseModel):
     name: str | None = None
     avatar_url: str | None = None
     daily_limit_minutes: int | None = None
+    bedtime_start: str | None = None
+    bedtime_end: str | None = None
 
 
 class KidRead(BaseModel):
@@ -34,6 +38,8 @@ class KidRead(BaseModel):
     name: str
     avatar_url: str | None
     daily_limit_minutes: int | None
+    bedtime_start: str | None
+    bedtime_end: str | None
     created_at: datetime
 
 

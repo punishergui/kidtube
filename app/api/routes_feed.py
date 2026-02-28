@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
-from app.services.limits import remaining_seconds_for
+from app.services.limits import is_in_any_schedule, is_in_bedtime, remaining_seconds_for
 
 router = APIRouter()
 
@@ -56,11 +56,17 @@ def list_feed(
         category_id = int(category_row[0])
 
     if kid_id is not None:
+        now = datetime.now(timezone.utc)  # noqa: UP017
+        if not is_in_any_schedule(session, kid_id=kid_id, now=now):
+            return []
+        if is_in_bedtime(session, kid_id=kid_id, now=now):
+            return []
+
         remaining_seconds = remaining_seconds_for(
             session,
             kid_id=kid_id,
             category_id=category_id,
-            now=datetime.now(timezone.utc),  # noqa: UP017
+            now=now,
         )
         if remaining_seconds is not None and remaining_seconds <= 0:
             return []
