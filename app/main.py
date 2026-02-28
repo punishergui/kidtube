@@ -116,6 +116,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 app.middleware("http")(request_logging_middleware)
+Path("/data/avatars/kids").mkdir(parents=True, exist_ok=True)
 app.mount(
     "/static/uploads/kids",
     StaticFiles(directory=Path("/data/avatars/kids")),
