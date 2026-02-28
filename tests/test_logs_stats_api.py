@@ -63,23 +63,35 @@ def test_stats_returns_category_aggregates(tmp_path: Path) -> None:
 
     with Session(engine) as session:
         kid = Kid(name='Noah')
-        category = Category(name='education')
+        category = session.execute(
+            text(
+                """
+                SELECT id
+                FROM categories
+                WHERE name = 'education'
+                LIMIT 1
+                """
+            )
+        ).mappings().first()
+        category_id: int | None = int(category['id']) if category else None
+        if category_id is None:
+            category_model = Category(name='education')
+            session.add(category_model)
+            session.flush()
+            category_id = category_model.id
+
         channel = Channel(
             youtube_id='chan-1',
             title='Ch',
             allowed=True,
             enabled=True,
             blocked=False,
+            category_id=category_id,
         )
         session.add(kid)
-        session.add(category)
-        session.commit()
-        session.refresh(kid)
-        session.refresh(category)
-
-        channel.category_id = category.id
         session.add(channel)
         session.commit()
+        session.refresh(kid)
         session.refresh(channel)
 
         video = Video(
@@ -103,7 +115,7 @@ def test_stats_returns_category_aggregates(tmp_path: Path) -> None:
             {
                 'kid_id': kid.id,
                 'video_id': video.id,
-                'category_id': category.id,
+                'category_id': category_id,
                 'created_at': today_value,
             },
         )
@@ -117,7 +129,7 @@ def test_stats_returns_category_aggregates(tmp_path: Path) -> None:
             {
                 'kid_id': kid.id,
                 'video_id': video.id,
-                'category_id': category.id,
+                'category_id': category_id,
                 'created_at': yesterday_value,
             },
         )
