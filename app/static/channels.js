@@ -19,11 +19,12 @@ function matchesFilter(channel) { if (activeFilter === 'whitelisted') return cha
 function renderCategories() {
   categorySelect.innerHTML = '<option value="">Category (optional)</option>' + categories.filter((c) => c.enabled).map((category) => `<option value="${category.id}">${category.name}</option>`).join('');
   categoriesBody.innerHTML = categories.map((category) => `
-    <article class="admin-card panel">
-      <div class="admin-card-head"><h3>${escapeHtml(category.name)}</h3><span class="small">${category.enabled ? 'Enabled' : 'Disabled'}</span></div>
+    <article class="panel category-card">
+      <div class="admin-card-head"><h3>${escapeHtml(category.name)}</h3><span class="left-pill ${category.enabled ? '' : 'pill-muted'}">${category.enabled ? 'Enabled' : 'Disabled'}</span></div>
       <p class="small">Default limit: ${category.daily_limit_minutes ?? 'none'} minutes/day</p>
       <div class="preview-actions">
         <button class="btn-soft" data-toggle-category="${category.id}">${category.enabled ? 'Disable' : 'Enable'}</button>
+        <button class="btn-soft" data-edit-limit="${category.id}">Edit limit</button>
         <button class="btn-secondary" data-delete-category="${category.id}">Delete/Archive</button>
       </div>
     </article>
@@ -36,17 +37,23 @@ function renderCategories() {
     await loadCategories();
   }));
 
+  categoriesBody.querySelectorAll('button[data-edit-limit]').forEach((button) => button.addEventListener('click', async () => {
+    const id = Number(button.dataset.editLimit);
+    const category = categories.find((item) => item.id === id);
+    const value = window.prompt('Default daily minutes', String(category.daily_limit_minutes ?? ''));
+    if (value === null) return;
+    await requestJson(`/api/categories/${id}`, { method: 'PATCH', body: JSON.stringify({ daily_limit_minutes: value === '' ? null : Number(value) }) });
+    await loadCategories();
+  }));
+
   categoriesBody.querySelectorAll('button[data-delete-category]').forEach((button) => button.addEventListener('click', async () => {
+    const id = Number(button.dataset.deleteCategory);
     try {
-      await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?hard_delete=true`, { method: 'DELETE' });
+      await requestJson(`/api/categories/${id}?hard_delete=true`, { method: 'DELETE' });
       showToast('Category deleted.');
-    } catch (error) {
-      if (String(error.message).includes('archive')) {
-        await requestJson(`/api/categories/${Number(button.dataset.deleteCategory)}?archive=true`, { method: 'DELETE' });
-        showToast('Category archived (in use).');
-      } else {
-        throw error;
-      }
+    } catch {
+      await requestJson(`/api/categories/${id}?archive=true`, { method: 'DELETE' });
+      showToast('Category archived (in use).');
     }
     await loadCategories();
   }));
@@ -59,7 +66,8 @@ function categoryDropdown(channel) {
 }
 
 function row(channel) {
-  return `<article class="panel admin-card"><div class="admin-card-head"><h3>${channel.title || 'Untitled channel'}</h3><span class="small">${channel.youtube_id}</span></div><p class="small">Input: ${channel.input || '—'}</p><p class="small">Resolve: ${channel.resolve_status}${channel.resolve_error ? ` · ${channel.resolve_error}` : ''}</p><label class="small">Category ${categoryDropdown(channel)}</label><div class="switch-row"><label class="switch-field"><span>Allowed</span><input type="checkbox" data-id="${channel.id}" data-action="allowed" ${channel.allowed ? 'checked' : ''} /><span class="slider"></span></label><label class="switch-field"><span>Enabled</span><input type="checkbox" data-id="${channel.id}" data-action="enabled" ${channel.enabled ? 'checked' : ''} /><span class="slider"></span></label><label class="switch-field"><span>Blocked</span><input type="checkbox" data-id="${channel.id}" data-action="blocked" ${channel.blocked ? 'checked' : ''} /><span class="slider"></span></label></div><div class="reason-row"><input data-reason="${channel.id}" value="${channel.blocked_reason || ''}" placeholder="Blocked reason" /><button class="btn-soft" data-save-reason="${channel.id}">Save reason</button><button class="btn-secondary" data-delete="${channel.id}">Delete</button></div><p class="small">Last sync: ${formatDate(channel.last_sync)}</p></article>`;
+  const status = channel.blocked ? 'Blocked' : (channel.allowed ? 'Allowed' : 'Pending');
+  return `<article class="panel admin-card channel-card"><div class="admin-card-head"><h3>${escapeHtml(channel.title || 'Untitled channel')}</h3><span class="small">${escapeHtml(channel.youtube_id)}</span></div><p class="small">Input: ${escapeHtml(channel.input || '—')}</p><p class="small">Status: <strong>${status}</strong> · Last sync: ${formatDate(channel.last_sync)}</p><p class="small">Resolve: ${escapeHtml(channel.resolve_status)}${channel.resolve_error ? ` · ${escapeHtml(channel.resolve_error)}` : ''}</p><label class="small">Category ${categoryDropdown(channel)}</label><div class="preview-actions"><button class="btn-soft" data-allow="${channel.id}">Allow</button><button class="btn-soft" data-block="${channel.id}">Block</button><button class="btn-secondary" data-disable="${channel.id}">${channel.enabled ? 'Disable' : 'Enable'}</button><button class="btn-secondary" data-delete="${channel.id}">Remove</button></div></article>`;
 }
 
 function renderChannels() {
@@ -71,15 +79,22 @@ function renderChannels() {
     await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify({ category_id: categoryId }) });
     await loadChannels();
   }));
-  body.querySelectorAll('input[data-action]').forEach((input) => input.addEventListener('change', async () => {
-    const id = Number(input.dataset.id);
-    const action = input.dataset.action;
+  body.querySelectorAll('button[data-allow]').forEach((button) => button.addEventListener('click', async () => {
+    await requestJson(`/api/channels/${Number(button.dataset.allow)}`, { method: 'PATCH', body: JSON.stringify({ allowed: true, blocked: false, enabled: true }) });
+    await loadChannels();
+  }));
+  body.querySelectorAll('button[data-block]').forEach((button) => button.addEventListener('click', async () => {
+    await requestJson(`/api/channels/${Number(button.dataset.block)}`, { method: 'PATCH', body: JSON.stringify({ blocked: true, allowed: false }) });
+    await loadChannels();
+  }));
+  body.querySelectorAll('button[data-disable]').forEach((button) => button.addEventListener('click', async () => {
+    const id = Number(button.dataset.disable);
     const channel = allChannels.find((item) => item.id === id);
-    let payload;
-    if (action === 'allowed') payload = { allowed: !channel.allowed };
-    if (action === 'enabled') payload = { enabled: !channel.enabled };
-    if (action === 'blocked') payload = { blocked: !channel.blocked, blocked_reason: body.querySelector(`input[data-reason="${id}"]`)?.value?.trim() || null };
-    await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+    await requestJson(`/api/channels/${id}`, { method: 'PATCH', body: JSON.stringify({ enabled: !channel.enabled }) });
+    await loadChannels();
+  }));
+  body.querySelectorAll('button[data-delete]').forEach((button) => button.addEventListener('click', async () => {
+    await requestJson(`/api/channels/${Number(button.dataset.delete)}`, { method: 'DELETE' });
     await loadChannels();
   }));
 }
@@ -112,11 +127,16 @@ filters?.querySelectorAll('button[data-filter]').forEach((button) => button.addE
   renderChannels();
 }));
 
+document.getElementById('toggle-add-category')?.addEventListener('click', () => {
+  createCategoryForm.hidden = !createCategoryForm.hidden;
+});
+
 createCategoryForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const data = new FormData(createCategoryForm);
   await requestJson('/api/categories', { method: 'POST', body: JSON.stringify({ name: String(data.get('name') || '').trim(), daily_limit_minutes: Number(String(data.get('daily_limit_minutes') || '').trim()) || null }) });
   createCategoryForm.reset();
+  createCategoryForm.hidden = true;
   showToast('Category created.');
   await loadCategories();
 });

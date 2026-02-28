@@ -24,6 +24,7 @@ class SearchResult(BaseModel):
     published_at: str | None
     duration_seconds: int | None = None
     is_short: bool | None = None
+    access_status: str
 
 
 @router.get("", response_model=list[SearchResult])
@@ -45,19 +46,60 @@ async def search(
 
     session.add(SearchLog(kid_id=kid_id, query=normalized))
     session.commit()
-    return [
-        {
-            "video_id": item.get("video_id"),
-            "title": item.get("title"),
-            "channel_id": item.get("channel_id"),
-            "channel_title": item.get("channel_title"),
-            "thumbnail_url": item.get("thumbnail_url"),
-            "published_at": item.get("published_at"),
-            "duration_seconds": item.get("duration_seconds"),
-            "is_short": item.get("is_short"),
-        }
-        for item in results
-    ]
+    payload: list[dict[str, object]] = []
+    for item in results:
+        video_id = item.get("video_id")
+        channel_id = item.get("channel_id")
+
+        channel_row = None
+        if channel_id:
+            channel_row = session.execute(
+                text(
+                    """
+                    SELECT allowed, blocked, enabled
+                    FROM channels
+                    WHERE youtube_id = :youtube_id
+                    LIMIT 1
+                    """
+                ),
+                {"youtube_id": channel_id},
+            ).first()
+
+        channel_allowed = bool(
+            channel_row and channel_row[0] and not channel_row[1] and channel_row[2]
+        )
+        if channel_allowed:
+            access_status = "allowed"
+        else:
+            pending = session.execute(
+                text(
+                    """
+                    SELECT 1
+                    FROM requests
+                    WHERE kid_id = :kid_id
+                      AND status = 'pending'
+                      AND youtube_id IN (:video_id, :channel_id)
+                    LIMIT 1
+                    """
+                ),
+                {"kid_id": kid_id, "video_id": video_id, "channel_id": channel_id or ""},
+            ).first()
+            access_status = "pending" if pending else "needs_request"
+
+        payload.append(
+            {
+                "video_id": video_id,
+                "title": item.get("title"),
+                "channel_id": channel_id,
+                "channel_title": item.get("channel_title"),
+                "thumbnail_url": item.get("thumbnail_url"),
+                "published_at": item.get("published_at"),
+                "duration_seconds": item.get("duration_seconds"),
+                "is_short": item.get("is_short"),
+                "access_status": access_status,
+            }
+        )
+    return payload
 
 
 @router.get("/logs")

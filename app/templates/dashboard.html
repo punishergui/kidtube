@@ -4,6 +4,7 @@
 <section class="dashboard-toolbar" style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
   <details class="kid-menu" style="position:relative;">
     <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:0.55rem;">
+      <span class="small" style="font-weight:800;color:var(--text);">{{ current_kid.name }}</span>
       <span
         style="width:48px;height:48px;border-radius:999px;overflow:hidden;display:grid;place-items:center;background:#161b22;color:#e6edf3;border:1px solid #30363d;font-weight:800;text-transform:uppercase;"
       >
@@ -13,7 +14,6 @@
         {{ (current_kid.name or 'K')[:2] }}
         {% endif %}
       </span>
-      <span class="small" style="font-weight:800;color:var(--text);">{{ current_kid.name }}</span>
     </summary>
     <div class="panel" style="position:absolute;right:0;top:calc(100% + 0.5rem);min-width:180px;padding:0.5rem;display:grid;gap:0.4rem;z-index:6;">
       <button id="switch-profile" class="btn-secondary" type="button">Switch Profile</button>
@@ -57,7 +57,7 @@
   </div>
   <section id="dashboard-grid" class="section-row"></section>
   <div class="more-wrap">
-    <button id="see-more-btn" class="btn-secondary" type="button">See more</button>
+    <button id="see-more-btn" class="btn-secondary" type="button">Load more</button>
   </div>
 </section>
 

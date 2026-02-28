@@ -35,7 +35,7 @@
         </nav>
         {% else %}
         <nav class="top-nav" aria-label="Main navigation">
-          <a href="/" data-route="/" class="nav-link">Dashboard</a>
+          {% if page != "dashboard" %}<a href="/" data-route="/" class="nav-link">Dashboard</a>{% endif %}
         </nav>
         {% endif %}
         <div id="alerts" aria-live="polite"></div>

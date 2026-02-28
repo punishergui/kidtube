@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.db.paths import resolve_db_path
 
 ADMIN_PIN_FILE = Path("/data/admin_pin.json")
+_HERE = Path(__file__).resolve().parent.parent
 
 
 def _default_database_url() -> str:
@@ -60,6 +61,7 @@ class Settings(BaseSettings):
     # IMPORTANT: override in production with a strong random value.
     secret_key: str = Field(default="dev-only-change-me", alias="SECRET_KEY")
     admin_pin: str | None = Field(default_factory=_load_admin_pin)
+    avatar_dir: Path = Field(default=_HERE / "static" / "uploads" / "kids", alias="AVATAR_DIR")
 
     @property
     def sqlite_path(self) -> Path | None:
