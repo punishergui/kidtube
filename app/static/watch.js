@@ -12,6 +12,7 @@ let heartbeatHandle = null;
 let ytApiPromise;
 
 const embedBase = 'https://www.youtube-nocookie.com/embed';
+const playerMode = new URLSearchParams(window.location.search).get('mode');
 
 function buildNoCookieEmbedUrl(videoId) {
   const params = new URLSearchParams({
@@ -150,6 +151,10 @@ async function loadNowPlaying(sessionState) {
 }
 
 async function loadVideo() {
+  if (playerMode === 'shorts') {
+    container.classList.add('shorts-mode');
+  }
+
   if (!youtubeId) {
     renderNotFound();
     return;

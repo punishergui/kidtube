@@ -1,21 +1,19 @@
 {% extends "base.html" %}
 {% block title %}KidTube · Dashboard{% endblock %}
 {% block content %}
-<section class="dashboard-toolbar" style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
-  <details class="kid-menu" style="position:relative;">
-    <summary style="list-style:none;cursor:pointer;display:flex;align-items:center;gap:0.55rem;">
-      <span
-        style="width:48px;height:48px;border-radius:999px;overflow:hidden;display:grid;place-items:center;background:#161b22;color:#e6edf3;border:1px solid #30363d;font-weight:800;text-transform:uppercase;"
-      >
+<section class="dashboard-toolbar">
+  <details class="kid-menu">
+    <summary class="kid-menu-summary">
+      <span class="kid-menu-avatar">
         {% if current_kid.avatar_url %}
-        <img src="{{ current_kid.avatar_url }}" alt="{{ current_kid.name }} avatar" style="width:100%;height:100%;object-fit:cover;display:block;" />
+        <img src="{{ current_kid.avatar_url }}" alt="{{ current_kid.name }} avatar" />
         {% else %}
         {{ (current_kid.name or 'K')[:2] }}
         {% endif %}
       </span>
-      <span class="small" style="font-weight:800;color:var(--text);">{{ current_kid.name }}</span>
+      <span class="kid-menu-label">{{ current_kid.name }}</span>
     </summary>
-    <div class="panel" style="position:absolute;right:0;top:calc(100% + 0.5rem);min-width:180px;padding:0.5rem;display:grid;gap:0.4rem;z-index:6;">
+    <div class="panel kid-menu-popover">
       <button id="switch-profile" class="btn-secondary" type="button">Switch Profile</button>
       <button id="parent-controls" class="btn-secondary" type="button">Parent Controls</button>
     </div>
@@ -23,9 +21,7 @@
 </section>
 
 <section id="category-panel" class="panel category-panel">
-  <div class="section-head">
-    <h2>Categories</h2>
-  </div>
+  <div class="section-head"><h2>Categories</h2></div>
   <div id="category-pills" class="category-pills" role="tablist" aria-label="Video categories"></div>
 </section>
 
@@ -34,40 +30,49 @@
   <section id="search-results-grid" class="section-row"></section>
 </section>
 
-<section id="allowed-channels" class="video-section">
-  <div class="section-head">
-    <h2>Allowed Channels</h2>
-    <a href="#" aria-label="See all allowed channels">See all</a>
-  </div>
-  <section id="allowed-channel-grid" class="channel-carousel"></section>
-</section>
+<div class="row-grid">
+  <section id="continue-watching" class="video-section continue-row">
+    <div class="section-head"><h2>Continue Watching</h2></div>
+    <section id="continue-grid" class="section-row"></section>
+  </section>
 
-<section id="shorts-videos" class="video-section">
-  <div class="section-head">
-    <h2>Shorts</h2>
-    <a href="#" aria-label="See all shorts">See all</a>
-  </div>
-  <section id="shorts-grid" class="section-row"></section>
-</section>
+  <section id="allowed-channels" class="video-section">
+    <div class="section-head">
+      <h2>Allowed Channels</h2>
+      <a href="#" aria-label="See all allowed channels">See all</a>
+    </div>
+    <section id="allowed-channel-grid" class="channel-carousel"></section>
+  </section>
 
-<section id="new-adventures" class="video-section">
-  <div class="section-head">
-    <h2>New Adventures</h2>
-    <a href="#" aria-label="See all new adventures">See all</a>
-  </div>
-  <section id="dashboard-grid" class="section-row"></section>
-  <div class="more-wrap">
-    <button id="see-more-btn" class="btn-secondary" type="button">See more</button>
-  </div>
-</section>
+  <section id="shorts-videos" class="video-section">
+    <div class="section-head">
+      <h2>Shorts</h2>
+      <a href="#" aria-label="See all shorts">See all</a>
+    </div>
+    <section id="shorts-grid" class="section-row"></section>
+  </section>
 
-<section id="latest-videos" class="video-section">
-  <div class="section-head">
-    <h2>Latest from Allowed</h2>
-    <a href="#" aria-label="See all latest from allowed">See all</a>
-  </div>
-  <section id="latest-channel-grid" class="section-row"></section>
-</section>
+  <section id="new-adventures" class="video-section">
+    <div class="section-head">
+      <h2>New Adventures</h2>
+      <a href="#" aria-label="See all new adventures">See all</a>
+    </div>
+    <section id="dashboard-grid" class="section-row"></section>
+    <div class="more-wrap">
+      <button id="see-more-btn" class="btn-secondary" type="button">See more</button>
+    </div>
+  </section>
+
+  <section id="latest-videos" class="video-section">
+    <div class="section-head">
+      <h2>Latest from Allowed</h2>
+      <a href="#" aria-label="See all latest from allowed">See all</a>
+    </div>
+    <section id="latest-channel-grid" class="section-row"></section>
+  </section>
+
+  <section id="category-rows" class="video-section"></section>
+</div>
 {% endblock %}
 {% block scripts %}
 <script type="module" src="/static/dashboard.js"></script>
