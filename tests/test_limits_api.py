@@ -200,7 +200,7 @@ def test_video_lookup_returns_403_when_kid_in_bedtime_window(monkeypatch, tmp_pa
                 channel_id=channel.id,
                 title="Sleep now",
                 thumbnail_url="https://img.example/bedtime.jpg",
-                published_at=real_datetime(2024, 1, 1, 8, 0, tzinfo=real_datetime.UTC),
+                published_at=real_datetime(2024, 1, 1, 8, 0, tzinfo=timezone.utc),  # noqa: UP017,
             )
         )
         session.commit()
