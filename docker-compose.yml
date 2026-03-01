@@ -18,6 +18,7 @@ services:
       KIDTUBE_DB_PATH: /data/kidtube.db
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       SYNC_MAX_VIDEOS_PER_CHANNEL: 50
+      DEEP_SYNC_ENABLED: ${DEEP_SYNC_ENABLED:-false}
       AVATAR_DIR: /app/static/uploads/kids
 
       # Admin

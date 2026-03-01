@@ -224,7 +224,8 @@ def channel_videos(
                 v.title AS video_title,
                 v.thumbnail_url AS video_thumbnail_url,
                 v.published_at AS video_published_at,
-                v.duration_seconds AS video_duration_seconds
+                v.duration_seconds AS video_duration_seconds,
+                v.view_count AS video_view_count
             FROM videos v
             JOIN channels c ON c.id = v.channel_id
             WHERE c.youtube_id = :channel_youtube_id

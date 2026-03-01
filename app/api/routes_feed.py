@@ -26,6 +26,7 @@ class FeedItem(BaseModel):
     video_published_at: datetime
     video_duration_seconds: int | None = None
     video_is_short: bool = False
+    video_view_count: int | None = None
 
 
 @router.get("", response_model=list[FeedItem])
@@ -79,7 +80,8 @@ def list_feed(
             v.thumbnail_url AS video_thumbnail_url,
             v.published_at AS video_published_at,
             v.duration_seconds AS video_duration_seconds,
-            v.is_short AS video_is_short
+            v.is_short AS video_is_short,
+            v.view_count AS video_view_count
         FROM videos v
         JOIN channels c ON c.id = v.channel_id
         LEFT JOIN categories cat ON cat.id = c.category_id
@@ -138,7 +140,8 @@ def latest_per_channel(
             v.thumbnail_url AS video_thumbnail_url,
             v.published_at AS video_published_at,
             v.duration_seconds AS video_duration_seconds,
-            v.is_short AS video_is_short
+            v.is_short AS video_is_short,
+            v.view_count AS video_view_count
         FROM channels c
         JOIN videos v ON v.channel_id = c.id
         LEFT JOIN categories cat ON cat.id = c.category_id
@@ -190,7 +193,8 @@ def list_shorts(
                 v.thumbnail_url AS video_thumbnail_url,
                 v.published_at AS video_published_at,
                 v.duration_seconds AS video_duration_seconds,
-                v.is_short AS video_is_short
+                v.is_short AS video_is_short,
+            v.view_count AS video_view_count
             FROM videos v
             JOIN channels c ON c.id = v.channel_id
             WHERE c.enabled = 1 AND c.allowed = 1 AND c.blocked = 0 AND v.is_short = 1

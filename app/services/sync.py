@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
+from sqlalchemy import text
 from sqlmodel import Session, select
 
 from app.core.config import settings
@@ -13,6 +14,7 @@ from app.services.youtube import (
     YouTubeResolveError,
     fetch_channel_metadata,
     fetch_latest_videos,
+    fetch_videos_before,
     resolve_channel,
 )
 from app.services.youtube_ytdlp import fetch_channel_videos
@@ -68,6 +70,7 @@ async def _fetch_channel_videos_with_fallback(
             "published_at": str(item.get("published_at") or datetime.now(timezone.utc).isoformat()),  # noqa: UP017
             "duration_seconds": item.get("duration_seconds"),
             "is_short": bool(item.get("is_short", False)),
+            "view_count": item.get("view_count"),
         }
         for item in ytdlp_videos
         if item.get("video_id")
@@ -75,7 +78,62 @@ async def _fetch_channel_videos_with_fallback(
     return records
 
 
-async def refresh_channel(channel_id: int) -> None:
+async def sync_channel_deep(session: Session, channel: Channel) -> int:
+    if not settings.deep_sync_enabled:
+        return 0
+
+    oldest_row = session.execute(
+        text("SELECT MIN(published_at) FROM videos WHERE channel_id = :channel_id"),
+        {"channel_id": channel.id},
+    ).first()
+    oldest_published_at = oldest_row[0] if oldest_row else None
+
+    if oldest_published_at is None:
+        videos = await _fetch_channel_videos_with_fallback(channel.youtube_id)
+    else:
+        videos = await fetch_videos_before(
+            channel.youtube_id,
+            published_before=oldest_published_at.isoformat(),
+            max_results=settings.sync_max_videos_per_channel,
+        )
+
+    if not videos:
+        return 0
+    return store_videos(session, channel.id, videos)
+
+
+async def refresh_enabled_channels_deep() -> dict[str, int | list[dict[str, str | int | None]]]:
+    summary: dict[str, int | list[dict[str, str | int | None]]] = {
+        "channels_seen": 0,
+        "resolved": 0,
+        "synced": 0,
+        "failed": 0,
+        "failures": [],
+    }
+
+    with Session(engine) as session:
+        channels = select_eligible_channels(session)
+        for channel in channels:
+            summary["channels_seen"] = int(summary["channels_seen"]) + 1
+            try:
+                added = await sync_channel_deep(session, channel)
+                channel.last_sync = datetime.now(timezone.utc)  # noqa: UP017
+                if added > 0:
+                    summary["synced"] = int(summary["synced"]) + 1
+            except Exception as exc:
+                channel.resolve_error = str(exc)
+                summary["failed"] = int(summary["failed"]) + 1
+                failures = summary["failures"]
+                assert isinstance(failures, list)
+                failures.append({"id": channel.id, "input": channel.input, "error": str(exc)})
+            finally:
+                session.add(channel)
+        session.commit()
+
+    return summary
+
+
+async def refresh_channel(channel_id: int) -> int:
     with Session(engine) as session:
         channel = session.get(Channel, channel_id)
         if (
@@ -180,9 +238,10 @@ def store_videos(
     session: Session, channel_db_id: int | None, videos: list[dict[str, str | int | bool | None]]
 ) -> None:
     if channel_db_id is None:
-        return
+        return 0
 
     shorts_marked = 0
+    added_count = 0
     for item in videos:
         existing = session.exec(select(Video).where(Video.youtube_id == item["youtube_id"])).first()
         duration_seconds = item.get("duration_seconds")
@@ -198,6 +257,10 @@ def store_videos(
                 session.add(existing)
                 if is_short and not was_short:
                     shorts_marked += 1
+            incoming_view_count = item.get("view_count")
+            if isinstance(incoming_view_count, int):
+                existing.view_count = incoming_view_count or existing.view_count
+                session.add(existing)
             continue
 
         published_at = datetime.fromisoformat(item["published_at"].replace("Z", "+00:00"))
@@ -212,13 +275,20 @@ def store_videos(
                 published_at=published_at,
                 duration_seconds=normalized_duration,
                 is_short=is_short,
+                view_count=(
+                    item.get("view_count")
+                    if isinstance(item.get("view_count"), int)
+                    else None
+                ),
             )
         )
+        added_count += 1
 
     logger.info(
         "sync_shorts_marked",
         extra={"channel_db_id": channel_db_id, "shorts_marked": shorts_marked},
     )
+    return added_count
 
 
 async def periodic_sync(stop_event: asyncio.Event) -> None:

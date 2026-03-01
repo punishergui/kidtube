@@ -505,8 +505,8 @@ td:last-child { border-radius: 0 12px 12px 0; }
 .video-card {
   text-decoration: none;
   color: inherit;
-  min-width: 220px;
-  max-width: 220px;
+  min-width: 260px;
+  max-width: 260px;
   flex-shrink: 0;
   border-radius: var(--radius-card);
   background: var(--surface);
@@ -520,14 +520,14 @@ td:last-child { border-radius: 0 12px 12px 0; }
   transform: scale(1.03);
 }
 
-.video-card .thumb {
+.video-card .video-thumbnail {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
   display: block;
 }
 
-.thumb { transition: opacity 0.2s ease; }
+.video-thumbnail { transition: opacity 0.2s ease; }
 
 .card-body {
   padding: 0.75rem;
@@ -1158,23 +1158,23 @@ textarea:focus-visible {
 
 
 .channel-video-grid {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
 .channel-video-card {
-  min-width: 280px;
+  min-width: 0;
   max-width: none;
   width: 100%;
 }
 
-.channel-video-card .thumb-wrap {
+.channel-video-card .thumbnail-wrap {
   position: relative;
   width: 100%;
   padding-top: 56.25%;
   overflow: hidden;
 }
 
-.channel-video-card .thumb-wrap .thumb {
+.channel-video-card .thumbnail-wrap .video-thumbnail {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1249,8 +1249,8 @@ textarea:focus-visible {
 .pin-numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
 .pin-numpad button { min-height: 48px; font-weight: 700; }
 
-.video-card { min-width: 220px; max-width: 220px; }
 .thumb-wrap { position: relative; overflow: hidden; border-radius: 12px; }
+.thumbnail-wrap { position: relative; overflow: hidden; border-radius: 12px; }
 .ratio-16-9 { aspect-ratio: 16 / 9; }
 .ratio-9-16 { aspect-ratio: 9 / 16; }
 .duration-badge {
@@ -1270,5 +1270,26 @@ textarea:focus-visible {
 .video-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 .shorts-card { min-width: 120px; max-width: 150px; width: 100%; }
-.shorts-card .thumb { width: 100%; height: 100%; object-fit: cover; }
+.shorts-card .video-thumbnail { width: 100%; height: 100%; object-fit: cover; }
 .shorts-card .card-body { display: none; }
+
+
+.thumb-preview {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0; transition: opacity 0.5s ease;
+  z-index: 1; pointer-events: none;
+}
+.thumb-preview.visible { opacity: 1; }
+.thumb-dots {
+  position: absolute; bottom: 28px; left: 50%;
+  transform: translateX(-50%); display: flex; gap: 5px;
+  z-index: 2; opacity: 0; transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.thumbnail-wrap:hover .thumb-dots,
+.thumbnail-wrap.previewing .thumb-dots { opacity: 1; }
+.thumb-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,0.4); transition: background 0.2s;
+}
+.thumb-dot.active { background: rgba(255,255,255,0.95); }

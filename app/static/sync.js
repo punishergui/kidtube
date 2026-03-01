@@ -1,14 +1,16 @@
 import { requestJson, showToast } from '/static/app.js';
 
 const runButton = document.getElementById('run-sync');
+const runDeepButton = document.getElementById('run-deep-sync');
 const result = document.getElementById('sync-result');
 
-runButton.addEventListener('click', async () => {
+async function runSync(endpoint, modeLabel) {
   runButton.disabled = true;
-  result.innerHTML = '<p>Sync in progress...</p>';
+  if (runDeepButton) runDeepButton.disabled = true;
+  result.innerHTML = `<p>${modeLabel} in progress...</p>`;
 
   try {
-    const response = await requestJson('/api/sync/run', { method: 'POST', body: '{}' });
+    const response = await requestJson(endpoint, { method: 'POST', body: '{}' });
     const updatedAt = new Date().toLocaleString();
     const failures = response.failures?.length
       ? `<table><thead><tr><th>Channel ID</th><th>Input</th><th>Error</th></tr></thead><tbody>${response.failures
@@ -32,11 +34,20 @@ runButton.addEventListener('click', async () => {
     `;
 
     localStorage.setItem('kidtube-refresh-feed-once', '1');
-    showToast('Sync completed successfully.');
+    showToast(`${modeLabel} completed successfully.`);
   } catch (error) {
-    showToast(`Sync failed: ${error.message}`, 'error');
-    result.innerHTML = '<p class="status error">Sync failed. Please try again.</p>';
+    showToast(`${modeLabel} failed: ${error.message}`, 'error');
+    result.innerHTML = `<p class="status error">${modeLabel} failed. Please try again.</p>`;
   } finally {
     runButton.disabled = false;
+    if (runDeepButton) runDeepButton.disabled = false;
   }
+}
+
+runButton.addEventListener('click', async () => {
+  await runSync('/api/sync/run', 'Sync');
+});
+
+runDeepButton?.addEventListener('click', async () => {
+  await runSync('/api/sync/deep', 'Deep sync');
 });

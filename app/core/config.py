@@ -56,6 +56,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("KIDTUBE_SYNC_INTERVAL_SECONDS", "SYNC_INTERVAL_SECONDS"),
     )
     sync_max_videos_per_channel: int = Field(default=50, alias="SYNC_MAX_VIDEOS_PER_CHANNEL")
+    deep_sync_enabled: bool = Field(default=False, alias="DEEP_SYNC_ENABLED")
     stats_hour: int = Field(default=20, alias="STATS_HOUR")
     http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
     # IMPORTANT: override in production with a strong random value.

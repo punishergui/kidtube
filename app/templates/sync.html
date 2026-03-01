@@ -8,7 +8,10 @@
   <p><strong>Sync fetches the latest videos for ENABLED channels and updates the KidTube feed.</strong></p>
   <p class="small">It does not change YouTube. It updates our local database.</p>
 </section>
-<button id="run-sync" class="btn-primary">Run Sync Now</button>
+<div class="sync-actions">
+  <button id="run-sync" class="btn-primary">Run Sync Now</button>
+  <button id="run-deep-sync" class="btn-secondary">Run Deep Sync</button>
+</div>
 <section id="sync-result" class="sync-result panel"></section>
 {% endblock %}
 {% block scripts %}
