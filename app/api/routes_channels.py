@@ -161,12 +161,6 @@ def list_allowed_channels(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
-    now = datetime.now(timezone.utc)  # noqa: UP017
-    if kid_id is not None:
-        allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
-        if not allowed:
-            return []
-
     rows = session.execute(
         text(
             """
@@ -222,12 +216,6 @@ def channel_videos(
     offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
-    now = datetime.now(timezone.utc)  # noqa: UP017
-    if kid_id is not None:
-        allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
-        if not allowed:
-            return []
-
     rows = session.execute(
         text(
             """

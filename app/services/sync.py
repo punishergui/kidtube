@@ -185,12 +185,22 @@ def store_videos(
     shorts_marked = 0
     for item in videos:
         existing = session.exec(select(Video).where(Video.youtube_id == item["youtube_id"])).first()
+        duration_seconds = item.get("duration_seconds")
+        normalized_duration = int(duration_seconds) if isinstance(duration_seconds, int) else None
+        is_short = bool(item.get("is_short", False))
+
         if existing:
+            should_update = existing.duration_seconds is None or not bool(existing.is_short)
+            if should_update:
+                was_short = bool(existing.is_short)
+                existing.duration_seconds = normalized_duration
+                existing.is_short = is_short
+                session.add(existing)
+                if is_short and not was_short:
+                    shorts_marked += 1
             continue
 
         published_at = datetime.fromisoformat(item["published_at"].replace("Z", "+00:00"))
-        duration_seconds = item.get("duration_seconds")
-        is_short = bool(item.get("is_short", False))
         if is_short:
             shorts_marked += 1
         session.add(
@@ -200,9 +210,7 @@ def store_videos(
                 title=str(item["title"]),
                 thumbnail_url=str(item["thumbnail_url"]),
                 published_at=published_at,
-                duration_seconds=(
-                    int(duration_seconds) if isinstance(duration_seconds, int) else None
-                ),
+                duration_seconds=normalized_duration,
                 is_short=is_short,
             )
         )

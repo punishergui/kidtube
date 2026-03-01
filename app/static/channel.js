@@ -3,10 +3,11 @@ import { requestJson, showToast } from '/static/app.js';
 const grid = document.getElementById('channel-video-grid');
 const channelHeader = document.getElementById('channel-header');
 const channelId = grid?.dataset.channelId;
-const sentinel = document.getElementById('channel-feed-sentinel');
+const sentinel = document.getElementById('channel-sentinel');
 const spinner = sentinel?.querySelector('.feed-spinner');
 
 const state = {
+  observer: null,
   kidId: null,
   limit: 24,
   offset: 0,
@@ -35,10 +36,10 @@ function formatDuration(seconds) {
 
 function card(item) {
   return `<a class="video-card panel channel-video-card" href="/watch/${item.video_youtube_id}">
-    <div class="thumb-wrap"><img class="thumb" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" /></div>
+    <div class="thumb-wrap"><img class="thumb" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" /><span class="duration-badge">${formatDuration(item.video_duration_seconds)}</span></div>
     <div class="card-body">
       <h3 class="video-title">${escapeHtml(item.video_title)}</h3>
-      <p class="video-meta">${escapeHtml(channelHeader.dataset.channelTitle || 'Unknown')} · ${formatDuration(item.video_duration_seconds)}</p>
+      <p class="video-meta">${escapeHtml(channelHeader.dataset.channelTitle || 'Unknown')}</p>
     </div>
   </a>`;
 }
@@ -55,13 +56,15 @@ async function loadMore() {
   updateSentinelUi();
   try {
     const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
-    if (state.kidId) params.set('kid_id', String(state.kidId));
     const rows = await requestJson(`/api/channels/${encodeURIComponent(channelId)}/videos?${params.toString()}`);
     if (rows.length) {
       grid.insertAdjacentHTML('beforeend', rows.map(card).join(''));
     }
     state.offset += rows.length;
     state.hasMore = rows.length === state.limit;
+    if (!state.hasMore && state.observer) {
+      state.observer.disconnect();
+    }
   } finally {
     state.loading = false;
     updateSentinelUi();
@@ -70,21 +73,21 @@ async function loadMore() {
 
 function setupInfiniteScroll() {
   if (!sentinel) return;
-  const observer = new IntersectionObserver((entries) => {
+  state.observer = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
         void loadMore();
       }
     });
   }, { threshold: 0.1 });
-  observer.observe(sentinel);
+  state.observer.observe(sentinel);
 }
 
 async function load() {
   try {
     const sessionState = await requestJson('/api/session');
     state.kidId = sessionState.kid_id;
-    const channel = await requestJson(`/api/channels/youtube/${encodeURIComponent(channelId)}?kid_id=${state.kidId || ''}`);
+    const channel = await requestJson(`/api/channels/youtube/${encodeURIComponent(channelId)}`);
 
     channelHeader.dataset.channelTitle = channel.title || channel.youtube_id || 'Unknown';
     channelHeader.innerHTML = `

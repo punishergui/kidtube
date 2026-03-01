@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -8,7 +8,6 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
-from app.services.limits import check_access
 
 router = APIRouter()
 
@@ -40,7 +39,6 @@ def list_feed(
 ) -> list[FeedItem]:
     del cursor
 
-    category_id = None
     if category is not None:
         category_row = session.execute(
             text(
@@ -56,19 +54,6 @@ def list_feed(
         ).first()
         if not category_row:
             return []
-        category_id = int(category_row[0])
-
-    now = datetime.now(timezone.utc)  # noqa: UP017
-    if kid_id is not None:
-        allowed, _reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            category_id=category_id,
-            now=now,
-        )
-        if not allowed:
-            return []
-
     query = text(
         """
         SELECT
@@ -120,12 +105,6 @@ def latest_per_channel(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
-    now = datetime.now(timezone.utc)  # noqa: UP017
-    if kid_id is not None:
-        allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
-        if not allowed:
-            return []
-
     query = text(
         """
         SELECT
@@ -168,11 +147,6 @@ def list_shorts(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
-    now = datetime.now(timezone.utc)  # noqa: UP017
-    if kid_id is not None:
-        allowed, _reason, _details = check_access(session, kid_id=kid_id, is_shorts=True, now=now)
-        if not allowed:
-            return []
     rows = session.execute(
         text(
             """
