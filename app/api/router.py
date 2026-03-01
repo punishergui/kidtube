@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.routes_admin_settings import router as admin_settings_router
 from app.api.routes_categories import router as categories_router
 from app.api.routes_channel_lookup import router as channel_lookup_router
 from app.api.routes_channels import router as channels_router
@@ -29,5 +30,5 @@ api_router.include_router(search_router, prefix="/api/search", tags=["search"])
 api_router.include_router(session_router, prefix="/api/session", tags=["session"])
 api_router.include_router(stats_router, prefix="/api", tags=["stats"])
 api_router.include_router(videos_router, prefix="/api/videos", tags=["videos"])
-
 api_router.include_router(sync_router, prefix="/api/sync", tags=["sync"])
+api_router.include_router(admin_settings_router, prefix="/api/admin", tags=["admin"])

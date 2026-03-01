@@ -18,86 +18,74 @@ async def send_approval_request_email(
     kid_name: str,
     video_title: str | None,
     channel_name: str | None,
-    thumbnail_url: str | None = None,
+    base_url: str,
 ) -> None:
-    if not settings.approval_email_to:
-        logger.info("approval_email_not_configured")
+    if not settings.smtp_username or not settings.approval_email_to:
+        logger.info("approval_email_not_configured", extra={"request_id": request_id})
         return
 
-    if not settings.smtp_username or not settings.smtp_password or not settings.smtp_from:
-        logger.info("smtp_not_fully_configured", extra={"request_id": request_id})
-        return
-
-    approvals_url = f"{settings.app_base_url.rstrip('/')}/admin/approvals"
-    safe_title = video_title or youtube_id or "requested content"
-    subject = f"KidTube: {kid_name} wants to watch {safe_title}"
+    subject_title = video_title or youtube_id or "requested content"
+    subject = f"KidTube: {kid_name} wants to watch {subject_title}"
+    thumbnail = (
+        f"https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg"
+        if youtube_id
+        else "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+    )
+    approvals_url = f"{base_url.rstrip('/')}/admin/approvals"
 
     plain = (
         "KidTube approval request\n\n"
         f"Kid: {kid_name}\n"
         f"Type: {request_type}\n"
-        f"Title: {safe_title}\n"
+        f"Video: {subject_title}\n"
         f"Channel: {channel_name or 'Unknown'}\n"
-        f"Request ID: {request_id}\n\n"
-        f"Approve or deny: {approvals_url}\n"
+        f"Review: {approvals_url}\n\n"
+        "Sent by KidTube parental controls"
     )
 
-    image = ""
-    if thumbnail_url:
-        image = (
-            f'<img src="{thumbnail_url}" alt="thumbnail" '
-            'style="max-width:100%;border-radius:12px;margin:12px 0;" />'
-        )
+    kid_line = f"<strong>{kid_name}</strong> asked to watch new content."
+    channel_label = channel_name or "Unknown"
 
-    html = f"""
-    <html><body
-      style=\"font-family:Arial,sans-serif;background:#0f172a;color:#e5e7eb;padding:20px;\">
-      <div
-        style=\"max-width:620px;margin:auto;background:#111827;padding:20px;\">
-        <h2 style=\"margin:0 0 8px;\">KidTube Approval Request</h2>
-        <p style=\"margin:0 0 8px;color:#cbd5e1;\">
-          <strong>{kid_name}</strong> requested new content.
-        </p>
-        <p style=\"margin:0;color:#cbd5e1;\">Title: <strong>{safe_title}</strong></p>
-        <p style=\"margin:6px 0 0;color:#cbd5e1;\">
-          Channel: <strong>{channel_name or 'Unknown'}</strong>
-        </p>
-        {image}
-        <div style=\"display:flex;gap:12px;margin-top:16px;\">
-          <a href=\"{approvals_url}\"
-            style=\"background:#16a34a;color:#fff;padding:12px 16px;\">
-            ✅ Approve
-          </a>
-          <a href=\"{approvals_url}\"
-            style=\"background:#dc2626;color:#fff;padding:12px 16px;\">
-            ❌ Deny
-          </a>
-        </div>
-      </div>
-    </body></html>
-    """
+    html = (
+        "<html><body "
+        "style='margin:0;background:#0b1020;color:#e5e7eb;font-family:Inter,Arial,sans-serif;'>"
+        "<div style='max-width:640px;margin:0 auto;padding:24px;'>"
+        "<div style='background:#111827;border:1px solid #2b354f;border-radius:16px;padding:20px;'>"
+        "<h2 style='margin:0 0 12px;color:#f8fafc;'>KidTube Approval Request</h2>"
+        f"<p style='margin:0 0 8px;color:#cbd5e1;'>{kid_line}</p>"
+        f"<p style='margin:0 0 6px;color:#cbd5e1;'><strong>Title:</strong> {subject_title}</p>"
+        f"<p style='margin:0 0 16px;color:#cbd5e1;'><strong>Channel:</strong> {channel_label}</p>"
+        f"<img src='{thumbnail}' alt='Video thumbnail' "
+        "style='width:100%;max-width:560px;border-radius:12px;display:block;' />"
+        "<div style='margin-top:18px;'>"
+        f"<a href='{approvals_url}' style='display:inline-block;background:#7c5cff;color:#fff;"
+        "text-decoration:none;font-weight:700;padding:12px 18px;border-radius:10px;'>"
+        "Review Request →</a></div></div>"
+        "<p style='color:#94a3b8;font-size:12px;margin-top:12px;'>"
+        "Sent by KidTube parental controls</p></div></body></html>"
+    )
 
-    def _send() -> None:
+    def _send_sync() -> None:
         msg = MIMEMultipart("alternative")
         msg["Subject"] = subject
-        msg["From"] = settings.smtp_from or ""
+        msg["From"] = settings.smtp_from or settings.smtp_username or ""
         msg["To"] = settings.approval_email_to or ""
         msg.attach(MIMEText(plain, "plain", "utf-8"))
         msg.attach(MIMEText(html, "html", "utf-8"))
 
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as server:
             server.starttls()
-            server.login(settings.smtp_username, settings.smtp_password)
-            server.sendmail(settings.smtp_from, [settings.approval_email_to], msg.as_string())
+            if settings.smtp_password:
+                server.login(settings.smtp_username, settings.smtp_password)
+            server.sendmail(msg["From"], [msg["To"]], msg.as_string())
 
     try:
-        await asyncio.to_thread(_send)
-        logger.info(
-            "approval_email_sent",
-            extra={"request_id": request_id, "to": settings.approval_email_to},
-        )
-    except Exception as exc:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _send_sync)
+        logger.info("approval_email_sent", extra={"request_id": request_id})
+    except Exception:
         logger.error(
             "approval_email_send_failed",
-            extra={"request_id": request_id, "error": str(exc)},
+            extra={"request_id": request_id},
+            exc_info=True,
         )

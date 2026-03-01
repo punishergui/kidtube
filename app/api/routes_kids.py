@@ -97,11 +97,8 @@ def _delete_avatar_file(kid_id: int) -> None:
 
 
 def _safe_avatar_url(kid_id: int, avatar_url: str | None) -> str | None:
-    if not avatar_url:
-        return None
-    if avatar_url.startswith('/static/uploads/kids/') and not _avatar_path(kid_id).exists():
-        return None
-    return avatar_url
+    del kid_id
+    return avatar_url or None
 
 
 def _assert_kid_exists(session: Session, kid_id: int) -> Kid:
