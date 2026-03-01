@@ -41,7 +41,9 @@ def select_eligible_channels(session: Session) -> list[Channel]:
     ).all()
 
 
-async def _fetch_channel_videos_with_fallback(channel_youtube_id: str) -> list[dict[str, str]]:
+async def _fetch_channel_videos_with_fallback(
+    channel_youtube_id: str,
+) -> list[dict[str, str | int | bool | None]]:
     if settings.youtube_api_key:
         try:
             api_videos = await fetch_latest_videos(
@@ -58,16 +60,19 @@ async def _fetch_channel_videos_with_fallback(channel_youtube_id: str) -> list[d
         max_results=settings.sync_max_videos_per_channel,
     )
     logger.debug("sync_backend=ytdlp")
-    return [
+    records = [
         {
             "youtube_id": str(item.get("video_id") or ""),
             "title": str(item.get("title") or "Untitled"),
             "thumbnail_url": str(item.get("thumbnail_url") or ""),
             "published_at": str(item.get("published_at") or datetime.now(UTC).isoformat()),
+            "duration_seconds": item.get("duration_seconds"),
+            "is_short": bool(item.get("is_short", False)),
         }
         for item in ytdlp_videos
         if item.get("video_id")
     ]
+    return records
 
 
 async def refresh_channel(channel_id: int) -> None:
@@ -171,27 +176,41 @@ async def refresh_enabled_channels() -> dict[str, int | list[dict[str, str | int
     return summary
 
 
-def store_videos(session: Session, channel_db_id: int | None, videos: list[dict[str, str]]) -> None:
+def store_videos(
+    session: Session, channel_db_id: int | None, videos: list[dict[str, str | int | bool | None]]
+) -> None:
     if channel_db_id is None:
         return
 
+    shorts_marked = 0
     for item in videos:
         existing = session.exec(select(Video).where(Video.youtube_id == item["youtube_id"])).first()
         if existing:
             continue
 
         published_at = datetime.fromisoformat(item["published_at"].replace("Z", "+00:00"))
+        duration_seconds = item.get("duration_seconds")
+        is_short = bool(item.get("is_short", False))
+        if is_short:
+            shorts_marked += 1
         session.add(
             Video(
-                youtube_id=item["youtube_id"],
+                youtube_id=str(item["youtube_id"]),
                 channel_id=channel_db_id,
-                title=item["title"],
-                thumbnail_url=item["thumbnail_url"],
+                title=str(item["title"]),
+                thumbnail_url=str(item["thumbnail_url"]),
                 published_at=published_at,
-                duration_seconds=item.get("duration_seconds"),
-                is_short=bool(item.get("is_short", False)),
+                duration_seconds=(
+                    int(duration_seconds) if isinstance(duration_seconds, int) else None
+                ),
+                is_short=is_short,
             )
         )
+
+    logger.info(
+        "sync_shorts_marked",
+        extra={"channel_db_id": channel_db_id, "shorts_marked": shorts_marked},
+    )
 
 
 async def periodic_sync(stop_event: asyncio.Event) -> None:

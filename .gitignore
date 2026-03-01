@@ -1,3 +1,6 @@
 .env
 .ssh/
 .home/
+
+/data/avatars/*
+!/data/avatars/.gitkeep

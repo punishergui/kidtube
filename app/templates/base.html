@@ -33,11 +33,11 @@
             </summary>
             <div class="header-profile-dropdown panel">
               <button id="switch-profile" class="btn-secondary" type="button">Switch Profile</button>
-              <a href="/admin" class="btn-secondary">Admin</a>
+              <a href="/admin" class="btn-secondary js-admin-link" data-admin-link="profile">Admin</a>
             </div>
           </details>
           {% else %}
-          <a href="/admin" class="admin-link">Admin</a>
+          <a href="/admin" class="admin-link js-admin-link" data-admin-link="global">Admin</a>
           {% endif %}
         </div>
       </header>

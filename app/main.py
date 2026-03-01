@@ -54,6 +54,10 @@ async def periodic_daily_stats(stop_event: asyncio.Event) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging(settings.log_level)
+    logger.info(
+        "discord_webhook_config",
+        extra={"discord_approval_webhook_url": settings.discord_approval_webhook_url},
+    )
     sqlite_path = settings.sqlite_path
     if sqlite_path:
         parent = sqlite_path.parent
