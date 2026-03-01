@@ -19,7 +19,7 @@ services:
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       SYNC_MAX_VIDEOS_PER_CHANNEL: 50
       DEEP_SYNC_ENABLED: ${DEEP_SYNC_ENABLED:-false}
-      AVATAR_DIR: /app/static/uploads/kids
+      AVATAR_DIR: /data/avatars
 
       # Admin
       KIDTUBE_ADMIN_PIN: 1234
@@ -44,8 +44,6 @@ services:
 
     volumes:
       - ./data:/data
-      # Run: mkdir -p data/avatars before first docker compose up
-      - ./data/avatars:/app/static/uploads/kids
 
     labels:
       - "traefik.enable=true"

@@ -1147,9 +1147,15 @@ textarea:focus-visible {
   font-size: 0.78rem;
 }
 
-.schedule-inline-form input[type="time"] {
-  min-width: 90px;
+.schedule-inline-form select {
   width: 100%;
+  min-width: 90px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.82rem;
 }
 
 .schedule-empty {
@@ -1293,3 +1299,15 @@ textarea:focus-visible {
   background: rgba(255,255,255,0.4); transition: background 0.2s;
 }
 .thumb-dot.active { background: rgba(255,255,255,0.95); }
+
+
+.channel-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0 0 var(--space-2);
+}
+
+.channel-tab.active {
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}

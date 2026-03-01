@@ -136,16 +136,20 @@
     const container = document.getElementById(containerId);
     if (!container || stateByContainer.has(container)) return;
 
-    const bindCards = () => {
-      container.querySelectorAll(cardSelector).forEach((card) => setupCard(card, thumbClass));
-    };
+    const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
-    bindCards();
+    if (isTouch) {
+      const tabletObserver = setupTabletObserver(container, cardSelector, thumbClass);
+      stateByContainer.set(container, { tabletObserver });
+    } else {
+      const bindCards = () => {
+        container.querySelectorAll(cardSelector).forEach((card) => setupCard(card, thumbClass));
+      };
 
-    const mutationObserver = new MutationObserver(() => bindCards());
-    mutationObserver.observe(container, { childList: true, subtree: true });
-
-    const tabletObserver = setupTabletObserver(container, cardSelector, thumbClass);
-    stateByContainer.set(container, { mutationObserver, tabletObserver });
+      bindCards();
+      const mutationObserver = new MutationObserver(() => bindCards());
+      mutationObserver.observe(container, { childList: true, subtree: true });
+      stateByContainer.set(container, { mutationObserver });
+    }
   };
 })();
