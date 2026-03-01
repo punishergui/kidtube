@@ -10,20 +10,17 @@ function scheduleGrid(kid) {
   const columns = DAYS.map(
     (day, dayIndex) => `
       <div class="schedule-day" data-schedule-day="${kid.id}:${dayIndex}">
-        <div class="schedule-day-head">
-          <strong>${day}</strong>
-        </div>
+        <div class="schedule-day-head"><strong>${day}</strong></div>
         <div class="schedule-pills" data-schedule-pills="${kid.id}:${dayIndex}"></div>
-        <button class="btn-soft" type="button" data-open-schedule-form="${kid.id}:${dayIndex}">+ Add Window</button>
         <div class="schedule-inline-form" data-schedule-form="${kid.id}:${dayIndex}" hidden>
-          <input type="time" data-schedule-start="${kid.id}:${dayIndex}" required />
-          <span class="small">to</span>
-          <input type="time" data-schedule-end="${kid.id}:${dayIndex}" required />
+          <label>Start:<input type="time" data-schedule-start="${kid.id}:${dayIndex}" required /></label>
+          <label>End:<input type="time" data-schedule-end="${kid.id}:${dayIndex}" required /></label>
           <div class="schedule-inline-actions">
             <button class="btn-primary" type="button" data-save-schedule="${kid.id}:${dayIndex}">Save</button>
             <button class="btn-secondary" type="button" data-cancel-schedule="${kid.id}:${dayIndex}">Cancel</button>
           </div>
         </div>
+        <button class="btn-soft" type="button" data-open-schedule-form="${kid.id}:${dayIndex}">+ Add</button>
       </div>
     `,
   ).join('');
@@ -113,7 +110,7 @@ function renderSchedules(kidId, schedules) {
             `,
           )
           .join('')
-      : '<span class="small">No windows</span>';
+      : '<span class="small schedule-empty">No windows</span>';
   }
 }
 
@@ -141,16 +138,19 @@ async function fillKidExtras(kidId) {
     : 'No per-category overrides.';
 }
 
+function closeAllScheduleForms() {
+  body.querySelectorAll('[data-schedule-form]').forEach((formEl) => {
+    formEl.hidden = true;
+  });
+  body.querySelectorAll('button[data-open-schedule-form]').forEach((openBtn) => {
+    openBtn.hidden = false;
+  });
+}
+
 function bindScheduleGridEvents() {
   body.querySelectorAll('button[data-open-schedule-form]').forEach((button) => {
     button.addEventListener('click', () => {
-      body.querySelectorAll('[data-schedule-form]').forEach((formEl) => {
-        formEl.hidden = true;
-      });
-      body.querySelectorAll('button[data-open-schedule-form]').forEach((openBtn) => {
-        openBtn.hidden = false;
-      });
-
+      closeAllScheduleForms();
       const key = button.dataset.openScheduleForm;
       const formEl = body.querySelector(`[data-schedule-form="${key}"]`);
       if (!formEl) return;
@@ -186,17 +186,9 @@ function bindScheduleGridEvents() {
         body: JSON.stringify({ day_of_week: day, start_time: start, end_time: end }),
       });
 
-      const formEl = body.querySelector(`[data-schedule-form="${kidId}:${day}"]`);
-      const openBtn = body.querySelector(`[data-open-schedule-form="${kidId}:${day}"]`);
-      if (formEl) formEl.hidden = true;
-      if (openBtn) openBtn.hidden = false;
-      const startEl = body.querySelector(`[data-schedule-start="${kidId}:${day}"]`);
-      const endEl = body.querySelector(`[data-schedule-end="${kidId}:${day}"]`);
-      if (startEl) startEl.value = '';
-      if (endEl) endEl.value = '';
-
       await fillKidExtras(kidId);
       bindDeleteEvents();
+      bindScheduleGridEvents();
       showToast('Schedule window added.');
     });
   });
@@ -207,8 +199,12 @@ function bindDeleteEvents() {
     button.addEventListener('click', async () => {
       const [kidId, scheduleId] = button.dataset.deleteSchedule.split(':').map(Number);
       await requestJson(`/api/kids/${kidId}/schedules/${scheduleId}`, { method: 'DELETE' });
-      await fillKidExtras(kidId);
-      bindDeleteEvents();
+      const pill = button.closest('.schedule-pill');
+      const pillsEl = pill?.parentElement;
+      pill?.remove();
+      if (pillsEl && !pillsEl.querySelector('.schedule-pill')) {
+        pillsEl.innerHTML = '<span class="small schedule-empty">No windows</span>';
+      }
     });
   });
 
