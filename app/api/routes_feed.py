@@ -39,6 +39,7 @@ def list_feed(
     cursor: str | None = Query(default=None),
 ) -> list[FeedItem]:
     del cursor
+    category_id: int | None = None
 
     if category is not None:
         category_row = session.execute(
@@ -55,11 +56,12 @@ def list_feed(
         ).first()
         if not category_row:
             return []
+        category_id = int(category_row[0])
 
     now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
         allowed, _reason, _details = check_access(
-            session, kid_id=kid_id, now=now
+            session, kid_id=kid_id, category_id=category_id, now=now
         )
         if not allowed:
             return []
