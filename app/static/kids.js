@@ -55,6 +55,12 @@ function scheduleGrid(kid) {
   return `
     <div class="touch-section">
       <h4>Allowed Schedule Windows</h4>
+      <p class="small settings-help-text" style="margin-bottom:0.5rem;color:var(--text-muted);">
+        Schedule windows define when this child CAN watch. If no windows are set,
+        access is allowed any time. If any windows are set, the child can ONLY watch
+        during those windows. Bedtime (above) is an additional hard block — even if
+        a schedule window is open, bedtime takes priority and blocks access.
+      </p>
       <div class="schedule-grid-scroll"><div class="schedule-grid">${columns}</div></div>
     </div>
   `;
@@ -87,6 +93,9 @@ function row(kid) {
         <label>Daily limit minutes<input data-limit="${kid.id}" type="number" min="1" value="${kid.daily_limit_minutes || ''}" /></label>
         <label>Bedtime start<input data-bedtime-start="${kid.id}" type="time" value="${kid.bedtime_start || ''}" /></label>
         <label>Bedtime end<input data-bedtime-end="${kid.id}" type="time" value="${kid.bedtime_end || ''}" /></label>
+        <p class="small" style="grid-column:1/-1;color:var(--text-muted);font-size:0.78rem;margin:0;">
+          Bedtime blocks access even during allowed schedule windows.
+        </p>
       </div>
       <div class="touch-section">
         <h4>Bonus Time</h4>

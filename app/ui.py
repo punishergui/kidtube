@@ -115,6 +115,11 @@ def ui_admin_stats(request: Request) -> HTMLResponse:
     return render_page(request, "stats.html", page="stats", nav_mode="admin")
 
 
+@router.get("/admin/settings", response_class=HTMLResponse)
+def ui_admin_settings(request: Request) -> HTMLResponse:
+    return render_page(request, "settings.html", page="settings", nav_mode="admin")
+
+
 @router.get("/channels")
 def ui_channels_redirect() -> RedirectResponse:
     return RedirectResponse(url="/admin/channels", status_code=307)
