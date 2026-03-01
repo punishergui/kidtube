@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}KidTube · Settings{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <h1>Settings</h1>
+    <p class="small">Manage API, notifications, sync, app links, and admin security in one place.</p>
+  </div>
+  <a class="btn-secondary" href="/admin">Back to Admin</a>
+</section>
+
+<div class="settings-save-bar panel">
+  <button id="save-settings-top" class="btn-primary" type="button">Save Settings</button>
+  <span id="settings-status" class="small">Changes are saved to <code>/data/app_settings.json</code>.</span>
+</div>
+
+<section class="panel" style="padding:1rem;">
+  <details class="settings-section" open>
+    <summary>YouTube API</summary>
+    <div class="settings-grid">
+      <div class="settings-field">
+        <label for="youtube_api_key">YouTube API Key</label>
+        <div class="inline-form">
+          <input id="youtube_api_key" type="password" placeholder="AIza..." />
+          <button id="toggle_youtube_api_key" class="btn-secondary" type="button">Show</button>
+        </div>
+        <p class="help-text">Required for syncing channels and videos. Get a key at console.developers.google.com</p>
+        <a class="small" href="https://console.developers.google.com/apis/api/youtube.googleapis.com" target="_blank" rel="noopener">Open YouTube API setup</a>
+      </div>
+    </div>
+  </details>
+
+  <details class="settings-section" open>
+    <summary>Email Notifications</summary>
+    <div class="settings-grid">
+      <div class="settings-field"><label for="approval_email_to">Notification email</label><input id="approval_email_to" type="email" /></div>
+      <div class="settings-field"><label for="smtp_username">Gmail address</label><input id="smtp_username" type="email" /></div>
+      <div class="settings-field">
+        <label for="smtp_password">Gmail App Password</label>
+        <div class="inline-form">
+          <input id="smtp_password" type="password" placeholder="••••" />
+          <button id="toggle_smtp_password" class="btn-secondary" type="button">Show</button>
+        </div>
+      </div>
+      <div class="settings-field"><label for="smtp_from">From address</label><input id="smtp_from" type="email" placeholder="Leave blank to use Gmail address" /></div>
+      <div class="settings-field"><label for="smtp_host">SMTP host</label><input id="smtp_host" type="text" placeholder="smtp.gmail.com" /></div>
+      <div class="settings-field"><label for="smtp_port">SMTP port</label><input id="smtp_port" type="number" placeholder="587" /></div>
+      <p class="help-text">Use a Gmail App Password, not your real password. Get one at myaccount.google.com/apppasswords</p>
+    </div>
+  </details>
+
+  <details class="settings-section" open>
+    <summary>Discord Notifications</summary>
+    <div class="settings-grid">
+      <div class="settings-field"><label for="discord_approval_webhook_url">Discord Webhook URL</label><input id="discord_approval_webhook_url" type="url" /></div>
+      <p class="help-text">Channel Settings → Integrations → Webhooks → New Webhook → Copy URL</p>
+    </div>
+  </details>
+
+  <details class="settings-section">
+    <summary>Discord Bot Integration (Advanced)</summary>
+    <div class="settings-grid">
+      <p class="help-text">Only needed if using the KidTube Discord bot for approvals. Most users can ignore this.</p>
+      <div class="settings-field">
+        <label for="discord_bot_token">Bot Token</label>
+        <div class="inline-form">
+          <input id="discord_bot_token" type="password" placeholder="••••" />
+          <button id="toggle_discord_bot_token" class="btn-secondary" type="button">Show</button>
+        </div>
+      </div>
+      <div class="settings-field"><label for="discord_public_key">Public Key</label><input id="discord_public_key" type="text" /></div>
+      <div class="settings-field"><label for="discord_guild_id">Guild ID</label><input id="discord_guild_id" type="text" /></div>
+      <div class="settings-field"><label for="discord_approval_channel_id">Approval Channel ID</label><input id="discord_approval_channel_id" type="text" /></div>
+      <div class="settings-field"><label for="discord_allowed_role_ids">Allowed Role IDs</label><input id="discord_allowed_role_ids" type="text" placeholder="comma-separated" /></div>
+      <div class="settings-field"><label for="discord_allowed_user_ids">Allowed User IDs</label><input id="discord_allowed_user_ids" type="text" placeholder="comma-separated" /></div>
+    </div>
+  </details>
+
+  <details class="settings-section" open>
+    <summary>Sync Settings</summary>
+    <div class="settings-grid">
+      <div class="settings-field"><label for="sync_max_videos_per_channel">Max videos per channel</label><input id="sync_max_videos_per_channel" type="number" min="10" max="500" /></div>
+      <div class="settings-field">
+        <label for="sync_interval_seconds">Sync interval seconds</label>
+        <input id="sync_interval_seconds" type="number" min="60" />
+        <p id="sync-interval-readable" class="help-text">= 15 minutes</p>
+      </div>
+      <div class="settings-field"><label><input id="deep_sync_enabled" type="checkbox" /> Deep Sync enabled</label></div>
+      <p class="help-text">Deep sync fetches more than 50 videos per channel. Uses more YouTube API quota (100 units per channel vs 1). Your free daily quota is 10,000 units.</p>
+    </div>
+  </details>
+
+  <details class="settings-section" open>
+    <summary>App</summary>
+    <div class="settings-grid">
+      <div class="settings-field"><label for="app_base_url">Base URL</label><input id="app_base_url" type="url" placeholder="https://kidtube.example.com" /></div>
+      <p class="help-text">Used in email notification links. Example: https://kidtube.example.com</p>
+      <div class="settings-danger-box">
+        <strong>⚠️ Warning</strong>
+        Changing the Base URL only affects links sent in email notifications.
+        It does NOT change the port or domain the app listens on — those are set in docker-compose.yml.
+      </div>
+    </div>
+  </details>
+
+  <details class="settings-section" open>
+    <summary>Admin PIN</summary>
+    <div class="settings-grid">
+      <p id="admin-pin-status" class="small">Loading PIN status…</p>
+      <div class="settings-field"><label for="new-admin-pin">New PIN</label><input id="new-admin-pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="New PIN (4-6 digits)" /></div>
+      <div class="settings-field"><label for="current-admin-pin">Current PIN</label><input id="current-admin-pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" placeholder="Current PIN (if required)" /></div>
+      <div class="inline-form">
+        <button id="save-admin-pin" class="btn-primary" type="button">Save PIN</button>
+        <button id="remove-admin-pin" class="btn-secondary" type="button">Remove PIN</button>
+      </div>
+      <div class="settings-info-box">
+        <strong>Locked out?</strong> If you forget your PIN, run this on your server:<br>
+        <code>rm data/admin_pin.json && docker compose restart</code><br>
+        This clears the PIN and restores open admin access.
+      </div>
+    </div>
+  </details>
+
+  <section class="settings-danger-zone">
+    <h2>Danger Zone</h2>
+    <div class="settings-danger-box">
+      <strong>🔴 SECRET_KEY — Never change this after first run</strong><br>
+      The SECRET_KEY is set in your .env file or docker-compose.yml.
+      Changing it will immediately invalidate ALL kid PINs, the admin PIN, and all active sessions.
+      Every child profile with a PIN set will need their PIN re-entered.
+      Set this once and never touch it again.
+    </div>
+    <div class="settings-danger-box">
+      <strong>🔴 Database Path — Set in docker-compose.yml only</strong><br>
+      The database path (KIDTUBE_DB_PATH) must be set before the app starts.
+      It cannot be changed here. Changing it incorrectly will cause the app to fail to start.
+    </div>
+  </section>
+
+  <div class="settings-grid" style="margin-top:1rem;">
+    <button id="save-settings-bottom" class="btn-primary" type="button">Save Settings</button>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+  import { showToast } from '/static/app.js';
+
+  const MASK = '••••';
+  const ids = [
+    'youtube_api_key', 'approval_email_to', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password',
+    'smtp_from', 'discord_approval_webhook_url', 'discord_bot_token', 'discord_public_key', 'discord_guild_id',
+    'discord_approval_channel_id', 'discord_allowed_role_ids', 'discord_allowed_user_ids',
+    'sync_max_videos_per_channel', 'sync_interval_seconds', 'deep_sync_enabled', 'app_base_url'
+  ];
+
+  function el(id) { return document.getElementById(id); }
+
+  function showHideToggle(inputId, buttonId) {
+    const input = el(inputId);
+    const button = el(buttonId);
+    if (!input || !button) return;
+    button.addEventListener('click', () => {
+      input.type = input.type === 'password' ? 'text' : 'password';
+      button.textContent = input.type === 'password' ? 'Show' : 'Hide';
+    });
+  }
+
+  function syncIntervalDisplay() {
+    const value = Number(el('sync_interval_seconds')?.value || 0);
+    const text = el('sync-interval-readable');
+    if (!text) return;
+    if (!value) {
+      text.textContent = '= —';
+      return;
+    }
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    if (hours > 0) {
+      text.textContent = `= ${hours} hours ${minutes} minutes`;
+      return;
+    }
+    text.textContent = `= ${Math.floor(value / 60)} minutes`;
+  }
+
+  async function refreshAdminPinStatus() {
+    const res = await fetch('/api/session/admin-pin');
+    const data = await res.json();
+    el('admin-pin-status').textContent = data.is_set ? 'PIN is set' : 'No PIN set (anyone can access admin)';
+  }
+
+  async function loadSettings() {
+    const res = await fetch('/api/admin/settings');
+    if (!res.ok) throw new Error('Unable to load settings');
+    const data = await res.json();
+
+    for (const id of ids) {
+      const field = el(id);
+      if (!field || !(id in data)) continue;
+      if (field.type === 'checkbox') {
+        field.checked = Boolean(data[id]);
+      } else {
+        field.value = data[id] ?? '';
+      }
+    }
+
+    if (data.smtp_password === MASK) {
+      const field = el('smtp_password');
+      field.value = MASK;
+      field.dataset.unchanged = 'true';
+    }
+    if (data.discord_bot_token === MASK) {
+      const field = el('discord_bot_token');
+      field.value = MASK;
+      field.dataset.unchanged = 'true';
+    }
+
+    syncIntervalDisplay();
+    await refreshAdminPinStatus();
+  }
+
+  async function saveSettings() {
+    const payload = {};
+    for (const id of ids) {
+      const field = el(id);
+      if (!field) continue;
+      if (field.type === 'checkbox') {
+        payload[id] = field.checked;
+      } else if (field.type === 'number') {
+        payload[id] = field.value === '' ? null : Number(field.value);
+      } else {
+        payload[id] = field.value.trim() || null;
+      }
+    }
+
+    const smtp = el('smtp_password');
+    if (smtp.dataset.unchanged === 'true' || smtp.value === MASK) {
+      payload.smtp_password = null;
+    }
+
+    const bot = el('discord_bot_token');
+    if (bot.dataset.unchanged === 'true' || bot.value === MASK) {
+      payload.discord_bot_token = null;
+    }
+
+    const res = await fetch('/api/admin/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Unable to save settings');
+    }
+
+    el('settings-status').textContent = 'Settings saved successfully.';
+    showToast('Settings saved.');
+    smtp.dataset.unchanged = 'true';
+    if (smtp.value) smtp.value = MASK;
+    bot.dataset.unchanged = 'true';
+    if (bot.value) bot.value = MASK;
+  }
+
+  el('smtp_password')?.addEventListener('input', () => { el('smtp_password').dataset.unchanged = 'false'; });
+  el('discord_bot_token')?.addEventListener('input', () => { el('discord_bot_token').dataset.unchanged = 'false'; });
+
+  el('sync_interval_seconds')?.addEventListener('input', syncIntervalDisplay);
+  el('save-settings-top')?.addEventListener('click', () => saveSettings().catch((err) => alert(err.message)));
+  el('save-settings-bottom')?.addEventListener('click', () => saveSettings().catch((err) => alert(err.message)));
+
+  el('save-admin-pin')?.addEventListener('click', async () => {
+    const newPin = el('new-admin-pin').value.trim();
+    const currentPin = el('current-admin-pin').value.trim();
+    const res = await fetch('/api/session/admin-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_pin: newPin, current_pin: currentPin }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || 'Unable to save PIN');
+      return;
+    }
+    el('new-admin-pin').value = '';
+    el('current-admin-pin').value = '';
+    await refreshAdminPinStatus();
+    showToast('Admin PIN updated.');
+  });
+
+  el('remove-admin-pin')?.addEventListener('click', async () => {
+    const currentPin = el('current-admin-pin').value.trim();
+    const res = await fetch('/api/session/admin-pin', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_pin: currentPin }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || 'Unable to remove PIN');
+      return;
+    }
+    el('new-admin-pin').value = '';
+    el('current-admin-pin').value = '';
+    await refreshAdminPinStatus();
+    showToast('Admin PIN removed.');
+  });
+
+  showHideToggle('youtube_api_key', 'toggle_youtube_api_key');
+  showHideToggle('smtp_password', 'toggle_smtp_password');
+  showHideToggle('discord_bot_token', 'toggle_discord_bot_token');
+
+  loadSettings().catch((err) => alert(err.message));
+</script>
+{% endblock %}

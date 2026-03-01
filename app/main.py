@@ -29,27 +29,65 @@ from app.services.sync import periodic_sync
 from app.ui import router as ui_router
 
 logger = logging.getLogger(__name__)
-NOTIFICATION_SETTINGS_FILE = Path("/data/notification_settings.json")
+LEGACY_NOTIFICATION_SETTINGS_FILE = Path("/data/notification_settings.json")
+APP_SETTINGS_FILE = Path("/data/app_settings.json")
 
 
-def _load_notification_settings() -> None:
-    if not NOTIFICATION_SETTINGS_FILE.exists():
-        return
+def _load_json_settings(path: Path, warning_event: str) -> dict[str, object]:
+    if not path.exists():
+        return {}
     try:
-        payload = json.loads(NOTIFICATION_SETTINGS_FILE.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        logger.warning("notification_settings_load_failed", exc_info=True)
-        return
+        logger.warning(warning_event, exc_info=True)
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
-    for key in (
-        "approval_email_to",
-        "smtp_username",
-        "smtp_password",
-        "discord_approval_webhook_url",
-    ):
-        value = payload.get(key)
+
+def _load_app_settings() -> None:
+    mapping = {
+        "youtube_api_key": "youtube_api_key",
+        "approval_email_to": "approval_email_to",
+        "smtp_host": "smtp_host",
+        "smtp_port": "smtp_port",
+        "smtp_username": "smtp_username",
+        "smtp_password": "smtp_password",
+        "smtp_from": "smtp_from",
+        "discord_approval_webhook_url": "discord_approval_webhook_url",
+        "discord_bot_token": "discord_bot_token",
+        "discord_public_key": "discord_public_key",
+        "discord_guild_id": "discord_guild_id",
+        "discord_approval_channel_id": "discord_approval_channel_id",
+        "discord_allowed_role_ids": "discord_allowed_role_ids",
+        "discord_allowed_user_ids": "discord_allowed_user_ids",
+        "sync_max_videos_per_channel": "sync_max_videos_per_channel",
+        "sync_interval_seconds": "sync_interval_seconds",
+        "deep_sync_enabled": "deep_sync_enabled",
+        "app_base_url": "app_base_url",
+    }
+
+    merged = _load_json_settings(
+        LEGACY_NOTIFICATION_SETTINGS_FILE,
+        "notification_settings_load_failed",
+    )
+    merged.update(_load_json_settings(APP_SETTINGS_FILE, "app_settings_load_failed"))
+
+    for json_key, settings_key in mapping.items():
+        if json_key not in merged:
+            continue
+        value = merged[json_key]
+        if settings_key in {"smtp_port", "sync_max_videos_per_channel", "sync_interval_seconds"}:
+            try:
+                setattr(settings, settings_key, int(value))
+            except (TypeError, ValueError):
+                continue
+            continue
+        if settings_key == "deep_sync_enabled":
+            if isinstance(value, bool):
+                setattr(settings, settings_key, value)
+            continue
         if isinstance(value, str):
-            setattr(settings, key, value.strip())
+            setattr(settings, settings_key, value.strip())
 
 
 async def periodic_daily_stats(stop_event: asyncio.Event) -> None:
@@ -76,7 +114,7 @@ async def periodic_daily_stats(stop_event: asyncio.Event) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging(settings.log_level)
-    _load_notification_settings()
+    _load_app_settings()
     logger.info(
         "discord_webhook_config",
         extra={"discord_approval_webhook_url": settings.discord_approval_webhook_url},

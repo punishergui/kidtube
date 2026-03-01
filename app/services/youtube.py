@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -14,6 +15,8 @@ YOUTUBE_API_BASE_URL = "https://www.googleapis.com/youtube/v3"
 _CHANNEL_ID_PATTERN = re.compile(r"^UC[\w-]{22}$")
 _VIDEO_ID_PATTERN = re.compile(r"^[\w-]{11}$")
 _YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com"}
+
+logger = logging.getLogger(__name__)
 
 
 class YouTubeResolveError(Exception):
@@ -92,6 +95,7 @@ async def fetch_latest_videos(
         },
         client=client,
     )
+    shorts_id_set = await fetch_shorts_video_ids(uploads_playlist, api_key, client=client)
 
     base_records: list[dict[str, str | None]] = []
     video_ids: list[str] = []
@@ -150,7 +154,6 @@ async def fetch_latest_videos(
         video_id = str(record["youtube_id"])
         duration_seconds = durations.get(video_id)
         view_count = view_counts.get(video_id)
-        source_url = f"https://www.youtube.com/watch?v={video_id}"
         records.append(
             {
                 "youtube_id": video_id,
@@ -159,14 +162,68 @@ async def fetch_latest_videos(
                 "published_at": str(record["published_at"]),
                 "duration_seconds": duration_seconds,
                 "is_short": bool(
-                    (duration_seconds is not None and duration_seconds <= 180)
-                    or ("/shorts/" in source_url)
+                    video_id in shorts_id_set
+                    or (duration_seconds is not None and duration_seconds <= 60)
                 ),
                 "view_count": view_count,
             }
         )
 
     return records
+
+
+
+
+async def fetch_shorts_video_ids(
+    uploads_playlist_id: str,
+    api_key: str,
+    max_results: int = 200,
+    client: httpx.AsyncClient | None = None,
+) -> set[str]:
+    """Fetch video ids from the channel shorts playlist derived from uploads id."""
+    if not uploads_playlist_id.startswith("UU"):
+        return set()
+
+    shorts_playlist_id = f"UUSH{uploads_playlist_id[2:]}"
+    short_ids: set[str] = set()
+    page_token: str | None = None
+    fetched = 0
+
+    while fetched < max_results:
+        params: dict[str, str | int] = {
+            "part": "contentDetails",
+            "playlistId": shorts_playlist_id,
+            "maxResults": min(50, max_results - fetched),
+            "key": api_key,
+        }
+        if page_token:
+            params["pageToken"] = page_token
+
+        try:
+            payload = await _youtube_get("/playlistItems", params, client=client)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                logger.warning(
+                    "shorts_playlist_not_found",
+                    extra={"playlist_id": shorts_playlist_id},
+                )
+                break
+            break
+        except Exception:
+            break
+
+        items = payload.get("items", [])
+        for item in items:
+            vid_id = item.get("contentDetails", {}).get("videoId")
+            if vid_id:
+                short_ids.add(str(vid_id))
+
+        fetched += len(items)
+        page_token = payload.get("nextPageToken")
+        if not page_token:
+            break
+
+    return short_ids
 
 
 async def fetch_videos_before(
@@ -180,6 +237,27 @@ async def fetch_videos_before(
         raise YouTubeResolveError(
             "YOUTUBE_API_KEY is not configured. Video sync requires a valid API key."
         )
+
+    content_details = await _youtube_get(
+        "/channels",
+        {
+            "part": "contentDetails",
+            "id": channel_id,
+            "key": api_key,
+        },
+        client=client,
+    )
+    uploads_playlist = (
+        content_details.get("items", [{}])[0]
+        .get("contentDetails", {})
+        .get("relatedPlaylists", {})
+        .get("uploads")
+    )
+    shorts_id_set = (
+        await fetch_shorts_video_ids(str(uploads_playlist), api_key, client=client)
+        if isinstance(uploads_playlist, str)
+        else set()
+    )
 
     payload = await _youtube_get(
         "/search",
@@ -255,7 +333,6 @@ async def fetch_videos_before(
     for record in base_records:
         video_id = str(record["youtube_id"])
         duration_seconds, view_count = details_by_id.get(video_id, (None, None))
-        source_url = f"https://www.youtube.com/watch?v={video_id}"
         records.append(
             {
                 "youtube_id": video_id,
@@ -264,8 +341,8 @@ async def fetch_videos_before(
                 "published_at": str(record["published_at"]),
                 "duration_seconds": duration_seconds,
                 "is_short": bool(
-                    (duration_seconds is not None and duration_seconds <= 180)
-                    or ("/shorts/" in source_url)
+                    video_id in shorts_id_set
+                    or (duration_seconds is not None and duration_seconds <= 60)
                 ),
                 "view_count": view_count,
             }
@@ -355,7 +432,7 @@ async def search_videos(
                 "thumbnail_url": thumb.get("url") or "",
                 "published_at": snippet.get("publishedAt"),
                 "duration_seconds": duration_seconds,
-                "is_short": bool(duration_seconds is not None and duration_seconds <= 180),
+                "is_short": bool(duration_seconds is not None and duration_seconds <= 60),
             }
         )
 

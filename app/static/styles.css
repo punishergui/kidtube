@@ -1160,11 +1160,6 @@ textarea:focus-visible {
   padding: var(--space-4);
 }
 
-.schedule-pill {
-  white-space: nowrap;
-}
-
-
 .schedule-day-head {
   font-size: 0.88rem;
 }
@@ -1172,9 +1167,21 @@ textarea:focus-visible {
 .schedule-pill {
   background: #111827;
   color: #e5e7eb;
-  white-space: nowrap;
+}
+
+.schedule-pill span {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.schedule-pill .btn-link {
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.3rem;
+  line-height: 1;
 }
 
 .schedule-inline-form label {
@@ -1350,4 +1357,107 @@ textarea:focus-visible {
 .channel-tab.active {
   background: var(--surface-raised);
   box-shadow: var(--shadow);
+}
+
+
+.settings-section {
+  margin-bottom: var(--space-4);
+}
+
+.settings-section summary {
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: var(--space-2) 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-section summary::before {
+  content: "▶";
+  font-size: 0.7rem;
+  transition: transform 0.2s;
+}
+
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.settings-grid {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 600px;
+  margin-top: var(--space-2);
+}
+
+.settings-field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.settings-field label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.settings-field .help-text {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.settings-danger-zone {
+  border: 2px solid #da3633;
+  border-radius: 12px;
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.settings-danger-zone h2 {
+  color: #da3633;
+  margin-top: 0;
+}
+
+.settings-danger-box {
+  background: rgba(218, 54, 51, 0.1);
+  border: 1px solid rgba(218, 54, 51, 0.4);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.settings-info-box {
+  background: rgba(56, 139, 253, 0.1);
+  border: 1px solid rgba(56, 139, 253, 0.4);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.5;
+}
+
+.settings-info-box code {
+  background: var(--surface-raised);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.82rem;
+}
+
+.settings-save-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: var(--space-4);
 }

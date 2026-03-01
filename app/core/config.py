@@ -43,10 +43,19 @@ class Settings(BaseSettings):
     port: int = 2018
     database_url: str = Field(default_factory=_default_database_url, alias="DATABASE_URL")
     log_level: str = "INFO"
+
     discord_public_key: str | None = Field(default=None, alias="DISCORD_PUBLIC_KEY")
     discord_approval_webhook_url: str | None = Field(
         default=None, alias="DISCORD_APPROVAL_WEBHOOK_URL"
     )
+    discord_bot_token: str | None = Field(default=None, alias="DISCORD_BOT_TOKEN")
+    discord_guild_id: str | None = Field(default=None, alias="DISCORD_GUILD_ID")
+    discord_approval_channel_id: str | None = Field(
+        default=None, alias="DISCORD_APPROVAL_CHANNEL_ID"
+    )
+    discord_allowed_role_ids: str | None = Field(default=None, alias="DISCORD_ALLOWED_ROLE_IDS")
+    discord_allowed_user_ids: str | None = Field(default=None, alias="DISCORD_ALLOWED_USER_IDS")
+
     youtube_api_key: str | None = Field(default=None, alias="YOUTUBE_API_KEY")
     sync_enabled: bool = Field(
         default=True,
@@ -60,11 +69,13 @@ class Settings(BaseSettings):
     deep_sync_enabled: bool = Field(default=False, alias="DEEP_SYNC_ENABLED")
     stats_hour: int = Field(default=20, alias="STATS_HOUR")
     http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
+
     # IMPORTANT: override in production with a strong random value.
     secret_key: str = Field(default="dev-only-change-me", alias="SECRET_KEY")
     app_base_url: str = Field(default="http://localhost:2018", alias="KIDTUBE_BASE_URL")
     admin_pin: str | None = Field(default_factory=_load_admin_pin)
     avatar_dir: Path = Field(default=_HERE / "static" / "uploads" / "kids", alias="AVATAR_DIR")
+
     smtp_host: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
     smtp_port: int = Field(default=587, alias="SMTP_PORT")
     smtp_username: str | None = Field(default=None, alias="SMTP_USERNAME")
@@ -81,4 +92,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
