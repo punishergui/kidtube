@@ -16,12 +16,8 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 def _kid_avatar_url(kid_id: int, avatar_url: str | None) -> str | None:
-    if not avatar_url:
-        return None
-    avatar_path = Path(f"/data/avatars/kids/{kid_id}/avatar.png")
-    if avatar_url.startswith("/static/uploads/kids/") and not avatar_path.exists():
-        return None
-    return avatar_url
+    del kid_id
+    return avatar_url or None
 
 
 def render_page(request: Request, template_name: str, **context: str) -> HTMLResponse:

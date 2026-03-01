@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -28,11 +29,32 @@ from app.services.sync import periodic_sync
 from app.ui import router as ui_router
 
 logger = logging.getLogger(__name__)
+NOTIFICATION_SETTINGS_FILE = Path("/data/notification_settings.json")
+
+
+def _load_notification_settings() -> None:
+    if not NOTIFICATION_SETTINGS_FILE.exists():
+        return
+    try:
+        payload = json.loads(NOTIFICATION_SETTINGS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        logger.warning("notification_settings_load_failed", exc_info=True)
+        return
+
+    for key in (
+        "approval_email_to",
+        "smtp_username",
+        "smtp_password",
+        "discord_approval_webhook_url",
+    ):
+        value = payload.get(key)
+        if isinstance(value, str):
+            setattr(settings, key, value.strip())
 
 
 async def periodic_daily_stats(stop_event: asyncio.Event) -> None:
     while not stop_event.is_set():
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)  # noqa: UP017
         next_run = now.replace(hour=settings.stats_hour % 24, minute=0, second=0, microsecond=0)
         if next_run <= now:
             next_run = next_run + timedelta(days=1)
@@ -54,6 +76,7 @@ async def periodic_daily_stats(stop_event: asyncio.Event) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging(settings.log_level)
+    _load_notification_settings()
     logger.info(
         "discord_webhook_config",
         extra={"discord_approval_webhook_url": settings.discord_approval_webhook_url},

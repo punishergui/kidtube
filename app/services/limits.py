@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -18,7 +18,7 @@ ACCESS_REASON_SHORTS_DISABLED = "shorts_disabled"
 
 def _utc_day_bounds(now: datetime) -> tuple[datetime, datetime]:
     now_utc = (
-        now.astimezone(UTC)
+        now.astimezone(timezone.utc)  # noqa: UP017
         if now.tzinfo
         else now.replace(  # noqa: UP017
             tzinfo=timezone.utc  # noqa: UP017

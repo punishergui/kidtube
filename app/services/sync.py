@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
@@ -65,7 +65,7 @@ async def _fetch_channel_videos_with_fallback(
             "youtube_id": str(item.get("video_id") or ""),
             "title": str(item.get("title") or "Untitled"),
             "thumbnail_url": str(item.get("thumbnail_url") or ""),
-            "published_at": str(item.get("published_at") or datetime.now(UTC).isoformat()),
+            "published_at": str(item.get("published_at") or datetime.now(timezone.utc).isoformat()),  # noqa: UP017
             "duration_seconds": item.get("duration_seconds"),
             "is_short": bool(item.get("is_short", False)),
         }
@@ -103,8 +103,8 @@ async def refresh_channel(channel_id: int) -> None:
         channel.banner_url = metadata.get("banner_url")
         channel.resolve_status = "ok"
         channel.resolve_error = None
-        channel.resolved_at = datetime.now(UTC)
-        channel.last_sync = datetime.now(UTC)
+        channel.resolved_at = datetime.now(timezone.utc)  # noqa: UP017
+        channel.last_sync = datetime.now(timezone.utc)  # noqa: UP017
         session.add(channel)
 
         store_videos(session, channel.id, videos)
@@ -135,7 +135,7 @@ async def refresh_enabled_channels() -> dict[str, int | list[dict[str, str | int
                     channel.banner_url = metadata.get("banner_url")
                     channel.resolve_status = "ok"
                     channel.resolve_error = None
-                    channel.resolved_at = datetime.now(UTC)
+                    channel.resolved_at = datetime.now(timezone.utc)  # noqa: UP017
                     summary["resolved"] = int(summary["resolved"]) + 1
 
                 metadata = await fetch_channel_metadata(channel.youtube_id)
@@ -147,7 +147,7 @@ async def refresh_enabled_channels() -> dict[str, int | list[dict[str, str | int
                 channel.banner_url = metadata.get("banner_url")
                 channel.resolve_status = "ok"
                 channel.resolve_error = None
-                channel.last_sync = datetime.now(UTC)
+                channel.last_sync = datetime.now(timezone.utc)  # noqa: UP017
                 store_videos(session, channel.id, videos)
                 summary["synced"] = int(summary["synced"]) + 1
             except Exception as exc:

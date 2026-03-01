@@ -9,26 +9,25 @@
   <a class="btn-secondary" href="/">Back to Kid Dashboard</a>
 </section>
 <section class="admin-grid">
-  <a class="panel admin-tile" href="/admin/channels">
-    <h2>Channels</h2>
-    <p class="small">Search and preview channels before allowing or blocking.</p>
-  </a>
-  <a class="panel admin-tile" href="/admin/kids">
-    <h2>Kids</h2>
-    <p class="small">Create and tune profiles and daily watch limits.</p>
-  </a>
-  <a class="panel admin-tile" href="/admin/approvals">
-    <h2>Approvals</h2>
-    <p class="small">Review pending kid requests and approve or deny.</p>
-  </a>
-  <a class="panel admin-tile" href="/admin/stats">
-    <h2>Logs + Stats</h2>
-    <p class="small">Review search/watch logs and daily totals in one place.</p>
-  </a>
-  <a class="panel admin-tile" href="/admin/sync">
-    <h2>Sync</h2>
-    <p class="small">Run sync and review exactly what changed.</p>
-  </a>
+  <a class="panel admin-tile" href="/admin/channels"><h2>Channels</h2><p class="small">Search and preview channels before allowing or blocking.</p></a>
+  <a class="panel admin-tile" href="/admin/kids"><h2>Kids</h2><p class="small">Create and tune profiles and daily watch limits.</p></a>
+  <a class="panel admin-tile" href="/admin/approvals"><h2>Approvals</h2><p class="small">Review pending kid requests and approve or deny.</p></a>
+  <a class="panel admin-tile" href="/admin/stats"><h2>Logs + Stats</h2><p class="small">Review search/watch logs and daily totals in one place.</p></a>
+  <a class="panel admin-tile" href="/admin/sync"><h2>Sync</h2><p class="small">Run sync and review exactly what changed.</p></a>
+</section>
+
+<section class="panel" style="margin-top:1rem;padding:1rem;">
+  <h2>Notifications</h2>
+  <div style="display:grid;gap:0.6rem;max-width:560px;">
+    <input id="approval-email-to" type="email" placeholder="Email to notify" />
+    <input id="smtp-username" type="email" placeholder="Gmail username" />
+    <div style="display:flex;gap:0.5rem;align-items:center;">
+      <input id="smtp-password" type="password" placeholder="Gmail app password" style="flex:1;" />
+      <button id="toggle-smtp-password" type="button" class="btn-secondary">Show</button>
+    </div>
+    <input id="discord-webhook-url" type="url" placeholder="Discord webhook URL" />
+    <button id="save-notification-settings" class="btn-primary" type="button">Save Settings</button>
+  </div>
 </section>
 
 <section class="panel" style="margin-top:1rem;padding:1rem;">
@@ -47,10 +46,45 @@
   async function refreshAdminPinStatus() {
     const res = await fetch('/api/session/admin-pin');
     const data = await res.json();
-    document.getElementById('admin-pin-status').textContent = data.is_set
-      ? 'PIN is set'
-      : 'No PIN set (anyone can access admin)';
+    document.getElementById('admin-pin-status').textContent = data.is_set ? 'PIN is set' : 'No PIN set (anyone can access admin)';
   }
+
+  async function loadNotificationSettings() {
+    const res = await fetch('/api/admin/notification-settings');
+    if (!res.ok) return;
+    const data = await res.json();
+    document.getElementById('approval-email-to').value = data.approval_email_to || '';
+    document.getElementById('smtp-username').value = data.smtp_username || '';
+    document.getElementById('smtp-password').value = '';
+    document.getElementById('discord-webhook-url').value = data.discord_approval_webhook_url || '';
+  }
+
+  document.getElementById('toggle-smtp-password')?.addEventListener('click', () => {
+    const input = document.getElementById('smtp-password');
+    input.type = input.type === 'password' ? 'text' : 'password';
+    document.getElementById('toggle-smtp-password').textContent = input.type === 'password' ? 'Show' : 'Hide';
+  });
+
+  document.getElementById('save-notification-settings')?.addEventListener('click', async () => {
+    const payload = {
+      approval_email_to: document.getElementById('approval-email-to').value.trim(),
+      smtp_username: document.getElementById('smtp-username').value.trim(),
+      smtp_password: document.getElementById('smtp-password').value.trim(),
+      discord_approval_webhook_url: document.getElementById('discord-webhook-url').value.trim(),
+    };
+    const res = await fetch('/api/admin/notification-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.detail || 'Unable to save settings');
+      return;
+    }
+    alert('Notification settings saved');
+    document.getElementById('smtp-password').value = '';
+  });
 
   document.getElementById('save-admin-pin')?.addEventListener('click', async () => {
     const newPin = document.getElementById('new-admin-pin').value.trim();
@@ -81,5 +115,6 @@
   });
 
   refreshAdminPinStatus();
+  loadNotificationSettings();
 </script>
 {% endblock %}

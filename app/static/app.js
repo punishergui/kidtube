@@ -76,69 +76,55 @@ function initProfileMenu() {
   });
 }
 
-function buildAdminPinModal() {
-  if (document.getElementById('admin-pin-overlay')) return;
-  const overlay = document.createElement('div');
-  overlay.id = 'admin-pin-overlay';
-  overlay.className = 'pin-overlay';
-  overlay.setAttribute('aria-hidden', 'true');
-  overlay.innerHTML = `
-    <div class="pin-modal panel" role="dialog" aria-modal="true" aria-labelledby="admin-pin-title">
-      <h2 id="admin-pin-title">Admin Access</h2>
-      <p class="pin-subtitle">Enter your PIN</p>
-      <div id="admin-pin-dots" class="pin-dots" aria-live="polite">
-        <span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span>
-      </div>
-      <p id="admin-pin-error" class="pin-error-msg" hidden>Incorrect PIN</p>
-      <div id="admin-pin-keypad" class="pin-keypad">
-        <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button>
-        <button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button>
-        <button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button>
-        <span></span><button type="button" data-key="0">0</button><button type="button" data-action="backspace">⌫</button>
-      </div>
-      <button id="admin-pin-cancel" type="button" class="btn-secondary">Cancel</button>
-    </div>`;
-  document.body.appendChild(overlay);
-}
-
 function initAdminAccess() {
-  buildAdminPinModal();
-  const overlay = document.getElementById('admin-pin-overlay');
-  const dots = document.getElementById('admin-pin-dots');
-  const keypad = document.getElementById('admin-pin-keypad');
-  const cancel = document.getElementById('admin-pin-cancel');
-  const error = document.getElementById('admin-pin-error');
-  let digits = [];
+  const modal = document.getElementById('admin-pin-modal');
+  const dotsWrap = document.getElementById('pin-dots');
+  const numpad = document.getElementById('pin-numpad');
+  const error = document.getElementById('pin-error');
+  const cancel = document.getElementById('pin-cancel');
+  if (!modal || !dotsWrap || !numpad || !cancel || !error) return;
+
+  const links = document.querySelectorAll('.js-admin-link');
+  let pinBuffer = '';
   let pinLength = 4;
   let submitting = false;
 
-  const setVisible = (open) => {
-    overlay.style.display = open ? 'flex' : 'none';
-    overlay.setAttribute('aria-hidden', open ? 'false' : 'true');
-  };
-  const updateDots = () => {
-    dots.querySelectorAll('.pin-dot').forEach((dot, index) => dot.classList.toggle('filled', index < digits.length));
-  };
-  const clear = () => {
-    digits = [];
+  const reset = () => {
+    pinBuffer = '';
     error.hidden = true;
-    dots.classList.remove('shake');
-    updateDots();
-  };
-  const fail = () => {
-    error.hidden = false;
-    dots.classList.remove('shake');
-    void dots.offsetWidth;
-    dots.classList.add('shake');
-    digits = [];
-    updateDots();
+    dotsWrap.classList.remove('shake');
+    dotsWrap.querySelectorAll('.pin-dot').forEach((dot) => dot.classList.remove('filled'));
   };
 
-  const verify = async () => {
-    if (submitting || digits.length < pinLength) return;
+  const renderDots = () => {
+    dotsWrap.querySelectorAll('.pin-dot').forEach((dot, idx) => {
+      dot.classList.toggle('filled', idx < pinBuffer.length);
+    });
+  };
+
+  const close = () => {
+    modal.hidden = true;
+    reset();
+  };
+
+  const fail = () => {
+    error.hidden = false;
+    dotsWrap.classList.remove('shake');
+    void dotsWrap.offsetWidth;
+    dotsWrap.classList.add('shake');
+    pinBuffer = '';
+    renderDots();
+  };
+
+  const submit = async () => {
+    if (submitting || pinBuffer.length < pinLength) return;
     submitting = true;
     try {
-      await requestJson('/api/session/admin-verify', { method: 'POST', body: JSON.stringify({ pin: digits.join('') }) });
+      await requestJson('/api/session/admin-verify', {
+        method: 'POST',
+        body: JSON.stringify({ pin: pinBuffer }),
+      });
+      close();
       window.location.href = '/admin';
     } catch {
       fail();
@@ -147,51 +133,46 @@ function initAdminAccess() {
     }
   };
 
-  keypad?.addEventListener('click', (event) => {
+  const open = async (event) => {
+    event.preventDefault();
+    const pinStatus = await requestJson('/api/session/admin-pin');
+    if (!pinStatus.is_set) {
+      window.location.href = '/admin';
+      return;
+    }
+    reset();
+    pinLength = 4;
+    modal.hidden = false;
+  };
+
+  links.forEach((link) => link.addEventListener('click', (event) => {
+    void open(event);
+  }));
+
+  numpad.addEventListener('click', (event) => {
     const button = event.target.closest('button');
-    if (!button) return;
+    if (!button || modal.hidden) return;
     if (button.dataset.action === 'backspace') {
-      digits.pop();
-      updateDots();
+      pinBuffer = pinBuffer.slice(0, -1);
+      renderDots();
       return;
     }
     const key = button.dataset.key;
-    if (!key || digits.length >= 6) return;
+    if (!key || pinBuffer.length >= 6) return;
     error.hidden = true;
-    digits.push(key);
-    updateDots();
-    if (digits.length >= pinLength) void verify();
-  });
-
-  cancel?.addEventListener('click', () => {
-    clear();
-    setVisible(false);
-  });
-  window.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && overlay.getAttribute('aria-hidden') === 'false') {
-      clear();
-      setVisible(false);
+    pinBuffer += key;
+    renderDots();
+    if (pinBuffer.length === 4 || pinBuffer.length === 6) {
+      void submit();
     }
   });
 
-  document.querySelectorAll('.js-admin-link').forEach((link) => {
-    link.addEventListener('click', async (event) => {
-      try {
-        const sessionState = await requestJson('/api/session');
-        if (!sessionState?.kid_id) return;
-        event.preventDefault();
-        const status = await requestJson('/api/session/admin-pin');
-        if (!status?.is_set) {
-          window.location.href = '/admin';
-          return;
-        }
-        pinLength = 4;
-        clear();
-        setVisible(true);
-      } catch (error) {
-        showToast(`Admin access denied: ${error.message}`, 'error');
-      }
-    });
+  cancel.addEventListener('click', close);
+
+  window.addEventListener('keydown', (event) => {
+    if (!modal.hidden && event.key === 'Escape') {
+      close();
+    }
   });
 }
 

@@ -79,15 +79,6 @@ async def _send_request_notifications(request_row: Request, session: Session) ->
             video_title = video_row[0]
             channel_name = video_row[1]
 
-    thumbnail_url = None
-    if request_row.youtube_id:
-        thumb_row = session.execute(
-            text("SELECT thumbnail_url FROM videos WHERE youtube_id = :youtube_id LIMIT 1"),
-            {"youtube_id": request_row.youtube_id},
-        ).first()
-        if thumb_row and thumb_row[0]:
-            thumbnail_url = str(thumb_row[0])
-
     await send_approval_request_email(
         request_id=request_row.id,
         request_type=request_row.type,
@@ -95,7 +86,7 @@ async def _send_request_notifications(request_row: Request, session: Session) ->
         kid_name=kid_name,
         video_title=video_title,
         channel_name=channel_name,
-        thumbnail_url=thumbnail_url,
+        base_url=settings.app_base_url,
     )
 
     if not webhook_url:
@@ -168,7 +159,7 @@ def _cooldown_retry_after_seconds(session: Session, kid_id: int | None) -> int |
         except ValueError:
             return REQUEST_COOLDOWN_SECONDS
     if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=datetime.UTC)
+        created_at = created_at.replace(tzinfo=timezone.utc)  # noqa: UP017
 
     elapsed = (datetime.now(timezone.utc) - created_at).total_seconds()  # noqa: UP017
     retry_after = REQUEST_COOLDOWN_SECONDS - int(elapsed)

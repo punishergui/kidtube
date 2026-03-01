@@ -61,6 +61,25 @@
         {% block content %}{% endblock %}
       </main>
     </div>
+
+    <div id="admin-pin-modal" hidden>
+      <div class="pin-modal-overlay">
+        <div class="pin-modal-box" role="dialog" aria-modal="true" aria-labelledby="admin-pin-title">
+          <h3 id="admin-pin-title">Admin Access</h3>
+          <div id="pin-dots" class="pin-dots" aria-live="polite">
+            <span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span><span class="pin-dot"></span>
+          </div>
+          <p id="pin-error" class="pin-error" hidden>Incorrect PIN</p>
+          <div id="pin-numpad" class="pin-numpad">
+            <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button>
+            <button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button>
+            <button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button>
+            <span></span><button type="button" data-key="0">0</button><button type="button" data-action="backspace">⌫</button>
+          </div>
+          <button id="pin-cancel" class="btn-secondary" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/static/app.js"></script>
     {% block scripts %}{% endblock %}
   </body>
