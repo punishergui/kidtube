@@ -30,6 +30,13 @@ function formatViews(n) {
   return String(n);
 }
 
+function formatSubscribers(n) {
+  if (!n) return '';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  return String(n);
+}
+
 function categoryClass(name) {
   const n = String(name || '').toLowerCase().trim();
   if (n.includes('edu') || n.includes('learn') || n.includes('school')) return 'cat-education';
@@ -106,7 +113,28 @@ async function load() {
     channelHeader.dataset.avatar = channel.avatar_url || '';
     channelHeader.dataset.category = channel.category || 'Fun';
     channelHeader.dataset.categoryName = channel.category_name || '';
-    channelHeader.innerHTML = `<div class="channel-page-meta">${channel.avatar_url ? `<img class="channel-page-avatar" src="${channel.avatar_url}" alt="${escapeHtml(channel.title || channel.youtube_id)}" />` : '<span class="channel-page-avatar">📺</span>'}<div><h2>${escapeHtml(channel.title || channel.youtube_id)}</h2><p class="small">${escapeHtml(channel.input || '')}</p></div></div>`;
+    const bannerStyle = channel.banner_url
+      ? `style="background-image: url('${channel.banner_url}'); background-size: cover; background-position: center; min-height: 120px;"`
+      : '';
+    const subsText = channel.subscriber_count
+      ? formatSubscribers(channel.subscriber_count)
+      : '';
+    channelHeader.innerHTML = `
+      <div class="channel-banner" ${bannerStyle}>
+        <div class="channel-banner-overlay">
+          <div class="channel-page-meta">
+            ${channel.avatar_url
+              ? `<img class="channel-page-avatar" src="${channel.avatar_url}" alt="${escapeHtml(channel.title || channel.youtube_id)}" />`
+              : '<span class="channel-page-avatar channel-page-avatar-placeholder">📺</span>'}
+            <div class="channel-page-info">
+              <h2 class="channel-page-title">${escapeHtml(channel.title || channel.youtube_id)}</h2>
+              ${channel.input ? `<p class="channel-page-handle small">${escapeHtml(channel.input)}</p>` : ''}
+              ${subsText ? `<p class="channel-page-subs small">${subsText} subscribers</p>` : ''}
+              ${channel.description ? `<p class="channel-page-desc small">${escapeHtml(channel.description.slice(0, 200))}${channel.description.length > 200 ? '…' : ''}</p>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>`;
 
     const heading = document.getElementById('channel-videos-heading');
     if (heading) heading.textContent = state.contentType === 'shorts' ? 'Channel Shorts' : 'Channel Videos';

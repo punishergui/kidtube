@@ -16,6 +16,7 @@ services:
       KIDTUBE_PORT: 2018
       KIDTUBE_BASE_URL: https://kidtube.white-house.cc
       KIDTUBE_DB_PATH: /data/kidtube.db
+      SECRET_KEY: ${SECRET_KEY:-a-strong-random-dev-key-change-this-in-production}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       SYNC_MAX_VIDEOS_PER_CHANNEL: 50
       DEEP_SYNC_ENABLED: ${DEEP_SYNC_ENABLED:-false}

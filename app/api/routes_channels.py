@@ -40,6 +40,8 @@ class ChannelRead(BaseModel):
     title: str | None
     avatar_url: str | None
     banner_url: str | None
+    description: str | None
+    subscriber_count: int | None
     category: str | None
     category_id: int | None
     allowed: bool
@@ -79,6 +81,8 @@ async def create_channel(
         channel.title = metadata.get("title")
         channel.avatar_url = metadata.get("avatar_url")
         channel.banner_url = metadata.get("banner_url")
+        channel.description = metadata.get("description")
+        channel.subscriber_count = metadata.get("subscriber_count")
         channel.resolve_status = "ok"
         channel.resolve_error = None
         channel.resolved_at = datetime.now(timezone.utc)  # noqa: UP017
@@ -191,6 +195,8 @@ def channel_detail(
                 c.title,
                 c.avatar_url,
                 c.banner_url,
+                c.description,
+                c.subscriber_count,
                 c.category,
                 c.category_id,
                 c.input,

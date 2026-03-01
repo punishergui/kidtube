@@ -159,7 +159,7 @@ async def fetch_latest_videos(
                 "published_at": str(record["published_at"]),
                 "duration_seconds": duration_seconds,
                 "is_short": bool(
-                    (duration_seconds is not None and duration_seconds <= 60)
+                    (duration_seconds is not None and duration_seconds <= 180)
                     or ("/shorts/" in source_url)
                 ),
                 "view_count": view_count,
@@ -264,7 +264,7 @@ async def fetch_videos_before(
                 "published_at": str(record["published_at"]),
                 "duration_seconds": duration_seconds,
                 "is_short": bool(
-                    (duration_seconds is not None and duration_seconds <= 60)
+                    (duration_seconds is not None and duration_seconds <= 180)
                     or ("/shorts/" in source_url)
                 ),
                 "view_count": view_count,
@@ -355,7 +355,7 @@ async def search_videos(
                 "thumbnail_url": thumb.get("url") or "",
                 "published_at": snippet.get("publishedAt"),
                 "duration_seconds": duration_seconds,
-                "is_short": bool(duration_seconds is not None and duration_seconds <= 60),
+                "is_short": bool(duration_seconds is not None and duration_seconds <= 180),
             }
         )
 

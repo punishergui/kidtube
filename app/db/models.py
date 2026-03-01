@@ -27,6 +27,8 @@ class Channel(SQLModel, table=True):
     title: str | None = None
     avatar_url: str | None = None
     banner_url: str | None = None
+    description: str | None = None
+    subscriber_count: int | None = None
     category: str | None = None
     category_id: int | None = Field(default=None, foreign_key="categories.id")
     allowed: bool = True

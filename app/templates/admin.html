@@ -14,23 +14,29 @@
   <a class="panel admin-tile" href="/admin/approvals"><h2>Approvals</h2><p class="small">Review pending kid requests and approve or deny.</p></a>
   <a class="panel admin-tile" href="/admin/stats"><h2>Logs + Stats</h2><p class="small">Review search/watch logs and daily totals in one place.</p></a>
   <a class="panel admin-tile" href="/admin/sync"><h2>Sync</h2><p class="small">Run sync and review exactly what changed.</p></a>
+  <a class="panel admin-tile" href="#notifications-section"><h2>⚙️ Settings</h2><p class="small">Configure Discord, email notifications, and admin PIN.</p></a>
+  <a class="panel admin-tile" href="#security-section"><h2>🔒 Security</h2><p class="small">Set admin PIN to protect the admin panel.</p></a>
 </section>
 
-<section class="panel" style="margin-top:1rem;padding:1rem;">
+<section id="notifications-section" class="panel" style="margin-top:1rem;padding:1rem;">
   <h2>Notifications</h2>
   <div style="display:grid;gap:0.6rem;max-width:560px;">
-    <input id="approval-email-to" type="email" placeholder="Email to notify" />
-    <input id="smtp-username" type="email" placeholder="Gmail username" />
+    <input id="approval-email-to" type="email" placeholder="your@email.com (receives approval alerts)" />
+    <input id="smtp-username" type="email" placeholder="yourname@gmail.com" />
     <div style="display:flex;gap:0.5rem;align-items:center;">
       <input id="smtp-password" type="password" placeholder="Gmail app password" style="flex:1;" />
       <button id="toggle-smtp-password" type="button" class="btn-secondary">Show</button>
     </div>
-    <input id="discord-webhook-url" type="url" placeholder="Discord webhook URL" />
+    <input id="discord-webhook-url" type="url" placeholder="https://discord.com/api/webhooks/..." />
     <button id="save-notification-settings" class="btn-primary" type="button">Save Settings</button>
+    <p class="small" style="margin-top:0.5rem;color:var(--text-muted);">
+      For Gmail: use an App Password (not your real password).
+      Get one at myaccount.google.com/apppasswords
+    </p>
   </div>
 </section>
 
-<section class="panel" style="margin-top:1rem;padding:1rem;">
+<section id="security-section" class="panel" style="margin-top:1rem;padding:1rem;">
   <h2>Security</h2>
   <p id="admin-pin-status" class="small">Loading PIN status…</p>
   <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
