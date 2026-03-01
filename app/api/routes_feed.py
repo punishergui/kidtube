@@ -39,8 +39,8 @@ def list_feed(
     cursor: str | None = Query(default=None),
 ) -> list[FeedItem]:
     del cursor
+    category_id: int | None = None
 
-    category_id = None
     if category is not None:
         category_row = session.execute(
             text(
@@ -61,14 +61,10 @@ def list_feed(
     now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
         allowed, _reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            category_id=category_id,
-            now=now,
+            session, kid_id=kid_id, category_id=category_id, now=now
         )
         if not allowed:
             return []
-
     query = text(
         """
         SELECT
@@ -122,10 +118,11 @@ def latest_per_channel(
 ) -> list[FeedItem]:
     now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
-        allowed, _reason, _details = check_access(session, kid_id=kid_id, now=now)
+        allowed, _reason, _details = check_access(
+            session, kid_id=kid_id, now=now
+        )
         if not allowed:
             return []
-
     query = text(
         """
         SELECT
@@ -170,7 +167,9 @@ def list_shorts(
 ) -> list[FeedItem]:
     now = datetime.now(timezone.utc)  # noqa: UP017
     if kid_id is not None:
-        allowed, _reason, _details = check_access(session, kid_id=kid_id, is_shorts=True, now=now)
+        allowed, _reason, _details = check_access(
+            session, kid_id=kid_id, now=now
+        )
         if not allowed:
             return []
     rows = session.execute(

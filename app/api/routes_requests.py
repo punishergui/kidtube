@@ -14,6 +14,7 @@ from app.api.routes_discord import build_approval_embed_payload
 from app.core.config import settings
 from app.db.models import Request
 from app.db.session import get_session
+from app.services.email_notify import send_approval_request_email
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -47,11 +48,8 @@ class RequestQueueRead(BaseModel):
     status: str
 
 
-async def _send_discord_request_notification(request_row: Request, session: Session) -> None:
+async def _send_request_notifications(request_row: Request, session: Session) -> None:
     webhook_url = settings.discord_approval_webhook_url
-    if not webhook_url:
-        logger.info("discord_webhook_not_configured")
-        return
 
     kid_name = "Unknown kid"
     if request_row.kid_id:
@@ -80,6 +78,29 @@ async def _send_discord_request_notification(request_row: Request, session: Sess
         if video_row:
             video_title = video_row[0]
             channel_name = video_row[1]
+
+    thumbnail_url = None
+    if request_row.youtube_id:
+        thumb_row = session.execute(
+            text("SELECT thumbnail_url FROM videos WHERE youtube_id = :youtube_id LIMIT 1"),
+            {"youtube_id": request_row.youtube_id},
+        ).first()
+        if thumb_row and thumb_row[0]:
+            thumbnail_url = str(thumb_row[0])
+
+    await send_approval_request_email(
+        request_id=request_row.id,
+        request_type=request_row.type,
+        youtube_id=request_row.youtube_id,
+        kid_name=kid_name,
+        video_title=video_title,
+        channel_name=channel_name,
+        thumbnail_url=thumbnail_url,
+    )
+
+    if not webhook_url:
+        logger.info("discord_webhook_not_configured")
+        return
 
     payload = build_approval_embed_payload(
         request_id=request_row.id,
@@ -225,7 +246,7 @@ async def create_channel_allow_request(
     session.add(request_row)
     session.commit()
     session.refresh(request_row)
-    await _send_discord_request_notification(request_row, session)
+    await _send_request_notifications(request_row, session)
     return request_row
 
 
@@ -246,7 +267,7 @@ async def create_video_allow_request(
     session.add(request_row)
     session.commit()
     session.refresh(request_row)
-    await _send_discord_request_notification(request_row, session)
+    await _send_request_notifications(request_row, session)
     return request_row
 
 

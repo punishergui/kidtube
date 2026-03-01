@@ -60,8 +60,15 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = Field(default=10.0, alias="HTTP_TIMEOUT_SECONDS")
     # IMPORTANT: override in production with a strong random value.
     secret_key: str = Field(default="dev-only-change-me", alias="SECRET_KEY")
+    app_base_url: str = Field(default="http://localhost:2018", alias="KIDTUBE_BASE_URL")
     admin_pin: str | None = Field(default_factory=_load_admin_pin)
     avatar_dir: Path = Field(default=_HERE / "static" / "uploads" / "kids", alias="AVATAR_DIR")
+    smtp_host: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="SMTP_PORT")
+    smtp_username: str | None = Field(default=None, alias="SMTP_USERNAME")
+    smtp_password: str | None = Field(default=None, alias="SMTP_PASSWORD")
+    smtp_from: str | None = Field(default=None, alias="SMTP_FROM")
+    approval_email_to: str | None = Field(default=None, alias="APPROVAL_EMAIL_TO")
 
     @property
     def sqlite_path(self) -> Path | None:

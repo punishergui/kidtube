@@ -11,6 +11,7 @@ services:
       DATABASE_URL: ${DATABASE_URL:-sqlite:////data/kidtube.db}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-}
+      DISCORD_APPROVAL_WEBHOOK_URL: ${DISCORD_APPROVAL_WEBHOOK_URL:-}
     volumes:
       - ./data:/data
       - ./data/avatars:/app/static/uploads/kids

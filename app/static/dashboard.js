@@ -233,7 +233,6 @@ async function loadMore() {
   try {
     const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
     if (state.channelFilter) params.set('channel_id', state.channelFilter);
-    if (state.kidId) params.set('kid_id', String(state.kidId));
     const page = await requestJson(`/api/feed?${params.toString()}`);
     state.items.push(...page);
     state.offset += page.length;
@@ -290,9 +289,9 @@ async function loadFeedData() {
   state.offset = 0;
   state.hasMore = true;
   [state.latestPerChannel, state.allowedChannels, state.shorts] = await Promise.all([
-    requestJson(`/api/feed/latest-per-channel?kid_id=${state.kidId}`),
-    requestJson(`/api/channels/allowed?kid_id=${state.kidId}`),
-    requestJson(`/api/feed/shorts?kid_id=${state.kidId}`),
+    requestJson('/api/feed/latest-per-channel'),
+    requestJson('/api/channels/allowed'),
+    requestJson('/api/feed/shorts'),
   ]);
   renderVideos();
   setupRowArrows();

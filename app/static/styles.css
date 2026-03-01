@@ -1181,3 +1181,43 @@ textarea:focus-visible {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 6, 16, 0.75);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.pin-modal {
+  width: min(420px, 92vw);
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pin-subtitle { margin: 0; color: var(--text-muted); }
+
+.pin-dots { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.45rem; }
+.pin-dot { height: 12px; border-radius: 999px; background: rgba(255,255,255,0.22); }
+.pin-dot.filled { background: var(--accent); }
+.pin-error-msg { margin: 0; color: #ff8ab6; font-weight: 700; }
+
+.pin-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.pin-keypad button { min-height: 46px; font-weight: 800; }
+
+.duration-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+}

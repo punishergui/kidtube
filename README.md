@@ -6,6 +6,12 @@ KidTube is a FastAPI app that gives kids a curated YouTube feed with parent-mana
 
 ### Local development
 
+First run (or older deployments pulled before the avatars folder existed):
+
+```bash
+mkdir -p data/avatars
+```
+
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
