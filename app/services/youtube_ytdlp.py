@@ -38,7 +38,7 @@ def _normalize_record(item: dict[str, object]) -> dict[str, object]:
         "duration": duration_seconds,
         "duration_seconds": duration_seconds,
         "is_short": bool(
-            (duration_seconds is not None and duration_seconds <= 60)
+            (duration_seconds is not None and duration_seconds <= 180)
             or ("/shorts/" in source_url)
         ),
         "published_at": published_at,

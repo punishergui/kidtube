@@ -27,9 +27,10 @@ def _load_admin_pin() -> str | None:
     except Exception:
         pass
 
-    env_pin = os.getenv("ADMIN_PIN")
-    if env_pin and env_pin.strip():
-        return env_pin.strip()
+    for env_name in ("KIDTUBE_ADMIN_PIN", "ADMIN_PIN"):
+        env_pin = os.getenv(env_name)
+        if env_pin and env_pin.strip():
+            return env_pin.strip()
     return None
 
 
