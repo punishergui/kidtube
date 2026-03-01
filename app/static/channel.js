@@ -60,7 +60,7 @@ function attachThumbCycle(root) {
     el.addEventListener('mouseenter', () => {
       if (thumbIntervals.has(el)) return;
       let idx = 0;
-      const timer = window.setInterval(() => { idx = (idx + 1) % thumbs.length; img.src = thumbs[idx]; }, 800);
+      const timer = window.setInterval(() => { idx = (idx + 1) % thumbs.length; img.src = thumbs[idx] || original; }, 800);
       thumbIntervals.set(el, timer);
     });
     el.addEventListener('mouseleave', () => {
@@ -120,6 +120,7 @@ async function load() {
 
     grid.innerHTML = '';
     setupInfiniteScroll();
+    updateSentinelUi();
     await loadMore();
     if (state.hasMore && sentinelVisible()) {
       await loadMore();

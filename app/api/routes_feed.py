@@ -95,6 +95,7 @@ def list_feed(
               OR (c.category_id IS NULL AND c.category = :category)
             )
           )
+          AND v.is_short = 0
         ORDER BY v.published_at DESC
         LIMIT :limit OFFSET :offset
         """
@@ -145,10 +146,12 @@ def latest_per_channel(
           AND c.allowed = 1
           AND c.blocked = 0
           AND (c.category_id IS NULL OR cat.enabled = 1)
+          AND v.is_short = 0
           AND v.id = (
             SELECT vv.id
             FROM videos vv
             WHERE vv.channel_id = c.id
+              AND vv.is_short = 0
             ORDER BY vv.published_at DESC
             LIMIT 1
           )

@@ -505,8 +505,8 @@ td:last-child { border-radius: 0 12px 12px 0; }
 .video-card {
   text-decoration: none;
   color: inherit;
-  min-width: 200px;
-  max-width: 200px;
+  min-width: 220px;
+  max-width: 220px;
   flex-shrink: 0;
   border-radius: var(--radius-card);
   background: var(--surface);
@@ -526,6 +526,8 @@ td:last-child { border-radius: 0 12px 12px 0; }
   object-fit: cover;
   display: block;
 }
+
+.thumb { transition: opacity 0.2s ease; }
 
 .card-body {
   padding: 0.75rem;
@@ -953,8 +955,14 @@ textarea:focus-visible {
 
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(120px, 1fr));
   gap: 0.6rem;
+  min-width: 700px;
+}
+
+.schedule-grid-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
 }
 
 .schedule-day {
@@ -1032,14 +1040,12 @@ textarea:focus-visible {
   background: linear-gradient(135deg, #5f6dff, #ff76c8);
 }
 
-@media (max-width: 1100px) {
-  .schedule-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
 
 .row-shell {
+  position: relative;
+}
+
+.carousel-wrap {
   position: relative;
 }
 
@@ -1142,6 +1148,7 @@ textarea:focus-visible {
 }
 
 .schedule-inline-form input[type="time"] {
+  min-width: 90px;
   width: 100%;
 }
 
@@ -1242,7 +1249,7 @@ textarea:focus-visible {
 .pin-numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
 .pin-numpad button { min-height: 48px; font-weight: 700; }
 
-.video-card { min-width: 200px; max-width: none; }
+.video-card { min-width: 220px; max-width: 220px; }
 .thumb-wrap { position: relative; overflow: hidden; border-radius: 12px; }
 .ratio-16-9 { aspect-ratio: 16 / 9; }
 .ratio-9-16 { aspect-ratio: 9 / 16; }

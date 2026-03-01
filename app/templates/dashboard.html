@@ -16,7 +16,7 @@
 <section id="allowed-channels" class="video-section">
   <div class="section-head">
     <h2>Allowed Channels</h2>
-    <a href="#" aria-label="See all allowed channels">See all</a>
+    <a href="/admin/channels" aria-label="See all allowed channels">See all</a>
   </div>
   <section id="allowed-channel-grid" class="channel-carousel"></section>
 </section>
@@ -24,26 +24,38 @@
 <section id="shorts-videos" class="video-section">
   <div class="section-head">
     <h2>Shorts</h2>
-    <a href="#" aria-label="See all shorts">See all</a>
+    <a href="#shorts-videos" aria-label="See all shorts">See all</a>
   </div>
-  <section id="shorts-grid" class="section-row"></section>
+  <div class="carousel-wrap">
+    <button class="row-nav-btn row-nav-btn-left" data-carousel="shorts-grid" aria-label="Scroll left">‹</button>
+    <section id="shorts-grid" class="section-row"></section>
+    <button class="row-nav-btn row-nav-btn-right" data-carousel="shorts-grid" aria-label="Scroll right">›</button>
+  </div>
 </section>
 
 <section id="new-adventures" class="video-section">
   <div class="section-head">
     <h2>New Adventures</h2>
-    <a href="#" aria-label="See all new adventures">See all</a>
+    <a href="#new-adventures" aria-label="See all new adventures">See all</a>
   </div>
-  <section id="dashboard-grid" class="section-row"></section>
+  <div class="carousel-wrap">
+    <button class="row-nav-btn row-nav-btn-left" data-carousel="dashboard-grid" aria-label="Scroll left">‹</button>
+    <section id="dashboard-grid" class="section-row"></section>
+    <button class="row-nav-btn row-nav-btn-right" data-carousel="dashboard-grid" aria-label="Scroll right">›</button>
+  </div>
   <div id="feed-sentinel" class="feed-sentinel" aria-live="polite"><span class="feed-spinner" hidden></span></div>
 </section>
 
 <section id="latest-videos" class="video-section">
   <div class="section-head">
     <h2>Latest from Allowed</h2>
-    <a href="#" aria-label="See all latest from allowed">See all</a>
+    <a href="#latest-videos" aria-label="See all latest from allowed">See all</a>
   </div>
-  <section id="latest-channel-grid" class="section-row"></section>
+  <div class="carousel-wrap">
+    <button class="row-nav-btn row-nav-btn-left" data-carousel="latest-channel-grid" aria-label="Scroll left">‹</button>
+    <section id="latest-channel-grid" class="section-row"></section>
+    <button class="row-nav-btn row-nav-btn-right" data-carousel="latest-channel-grid" aria-label="Scroll right">›</button>
+  </div>
 </section>
 {% endblock %}
 {% block scripts %}
