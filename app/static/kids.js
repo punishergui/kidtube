@@ -28,7 +28,7 @@ function scheduleGrid(kid) {
   return `
     <div class="touch-section">
       <h4>Allowed Schedule Windows</h4>
-      <div class="schedule-grid">${columns}</div>
+      <div class="schedule-grid-scroll"><div class="schedule-grid">${columns}</div></div>
     </div>
   `;
 }

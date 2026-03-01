@@ -133,20 +133,20 @@ function initAdminAccess() {
     }
   };
 
-  const open = async (event) => {
+  links.forEach((link) => link.addEventListener('click', async (event) => {
     event.preventDefault();
-    const pinStatus = await requestJson('/api/session/admin-pin');
-    if (!pinStatus.is_set) {
+    try {
+      const pinStatus = await requestJson('/api/session/admin-pin');
+      if (!pinStatus?.is_set) {
+        window.location.href = '/admin';
+        return;
+      }
+      reset();
+      pinLength = 4;
+      modal.hidden = false;
+    } catch {
       window.location.href = '/admin';
-      return;
     }
-    reset();
-    pinLength = 4;
-    modal.hidden = false;
-  };
-
-  links.forEach((link) => link.addEventListener('click', (event) => {
-    void open(event);
   }));
 
   numpad.addEventListener('click', (event) => {

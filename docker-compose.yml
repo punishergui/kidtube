@@ -18,6 +18,7 @@ services:
       KIDTUBE_DB_PATH: /data/kidtube.db
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY}
       SYNC_MAX_VIDEOS_PER_CHANNEL: 50
+      AVATAR_DIR: /app/static/uploads/kids
 
       # Admin
       KIDTUBE_ADMIN_PIN: 1234
@@ -42,6 +43,7 @@ services:
 
     volumes:
       - ./data:/data
+      # Run: mkdir -p data/avatars before first docker compose up
       - ./data/avatars:/app/static/uploads/kids
 
     labels:

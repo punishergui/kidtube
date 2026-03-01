@@ -69,7 +69,7 @@ function attachThumbCycle(root) {
       let idx = 0;
       const timer = window.setInterval(() => {
         idx = (idx + 1) % list.length;
-        img.src = list[idx];
+        img.src = list[idx] || original;
       }, 800);
       thumbIntervals.set(card, timer);
     });
@@ -183,7 +183,20 @@ function renderSearchResults() { /* keep existing compact */
   `).join('');
 }
 
-function setupRowArrows() {}
+function setupRowArrows() {
+  document.querySelectorAll('.row-nav-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.carousel;
+      const row = document.getElementById(targetId);
+      if (!row) return;
+      const scrollAmount = row.clientWidth * 0.75;
+      row.scrollBy({
+        left: btn.classList.contains('row-nav-btn-left') ? -scrollAmount : scrollAmount,
+        behavior: 'smooth',
+      });
+    });
+  });
+}
 function updateSentinelUi() { if (feedSentinel) feedSentinel.hidden = !state.hasMore; if (sentinelSpinner) sentinelSpinner.hidden = !state.loadingMore; }
 
 async function loadMore() {
