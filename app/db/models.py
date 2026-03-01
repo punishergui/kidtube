@@ -52,6 +52,7 @@ class Video(SQLModel, table=True):
     published_at: datetime
     duration_seconds: int | None = None
     is_short: bool = False
+    view_count: int | None = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 

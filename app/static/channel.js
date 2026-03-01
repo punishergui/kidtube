@@ -7,7 +7,7 @@ const sentinel = document.getElementById('channel-feed-sentinel');
 const spinner = sentinel?.querySelector('.feed-spinner');
 
 const state = { observer: null, kidId: null, limit: 24, offset: 0, hasMore: true, loading: false };
-const thumbIntervals = new WeakMap();
+let thumbPreviewInitialized = false;
 
 function escapeHtml(value) {
   return String(value || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
@@ -15,9 +15,19 @@ function escapeHtml(value) {
 
 function formatDuration(seconds) {
   if (!Number.isFinite(seconds) || seconds <= 0) return '—';
-  const s = Math.floor(seconds); const hrs = Math.floor(s / 3600); const mins = Math.floor((s % 3600) / 60); const secs = s % 60;
+  const s = Math.floor(seconds);
+  const hrs = Math.floor(s / 3600);
+  const mins = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
   if (hrs > 0) return `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function formatViews(n) {
+  if (!n || n <= 0) return '';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  return String(n);
 }
 
 function categoryClass(name) {
@@ -27,48 +37,20 @@ function categoryClass(name) {
   return 'cat-fun';
 }
 
-function thumbsFor(videoId, current) {
-  if (!videoId) return current ? [current] : [];
-  return [current || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`, `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`, `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`, `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`];
-}
-
 function card(item) {
   const duration = formatDuration(item.video_duration_seconds);
   const category = channelHeader.dataset.category || 'Fun';
-  const thumbs = thumbsFor(item.video_youtube_id, item.video_thumbnail_url).join(',');
-  return `<a class="video-card panel channel-video-card" data-thumbs="${thumbs}" href="/watch/${item.video_youtube_id}">
-    <div class="thumb-wrap ratio-16-9">
-      <img class="thumb" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" />
+  return `<a class="video-card panel channel-video-card" data-video-id="${item.video_youtube_id}" href="/watch/${item.video_youtube_id}">
+    <div class="thumbnail-wrap ratio-16-9">
+      <img class="video-thumbnail" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" />
       <span class="category-badge ${categoryClass(category)}">${escapeHtml(category)}</span>
       <span class="duration-badge">${duration}</span>
     </div>
     <div class="card-body compact">
-      <div class="channel-line">${channelHeader.dataset.avatar ? `<img class="mini-channel-avatar" src="${channelHeader.dataset.avatar}" alt="${escapeHtml(channelHeader.dataset.channelTitle || 'Channel')}" />` : '<span class="mini-channel-avatar">📺</span>'}<span>${escapeHtml(channelHeader.dataset.channelTitle || 'Unknown')}</span></div>
       <h3 class="video-title">${escapeHtml(item.video_title)}</h3>
-      <p class="video-meta">${duration}</p>
+      <p class="video-meta">${escapeHtml(channelHeader.dataset.channelTitle || 'Unknown')}${item.video_view_count ? ` · ${formatViews(item.video_view_count)} views` : ''}</p>
     </div>
   </a>`;
-}
-
-function attachThumbCycle(root) {
-  root.querySelectorAll('[data-thumbs]').forEach((el) => {
-    const img = el.querySelector('img.thumb');
-    if (!img) return;
-    const thumbs = String(el.dataset.thumbs || '').split(',').filter(Boolean);
-    if (!thumbs.length) return;
-    const original = img.src;
-    el.addEventListener('mouseenter', () => {
-      if (thumbIntervals.has(el)) return;
-      let idx = 0;
-      const timer = window.setInterval(() => { idx = (idx + 1) % thumbs.length; img.src = thumbs[idx] || original; }, 800);
-      thumbIntervals.set(el, timer);
-    });
-    el.addEventListener('mouseleave', () => {
-      const timer = thumbIntervals.get(el);
-      if (timer) { window.clearInterval(timer); thumbIntervals.delete(el); }
-      img.src = original;
-    });
-  });
 }
 
 function updateSentinelUi() {
@@ -79,17 +61,22 @@ function updateSentinelUi() {
 
 async function loadMore() {
   if (!state.hasMore || state.loading) return;
-  state.loading = true; updateSentinelUi();
+  state.loading = true;
+  updateSentinelUi();
   try {
     const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
     const rows = await requestJson(`/api/channels/${encodeURIComponent(channelId)}/videos?${params.toString()}`);
     if (rows.length) grid.insertAdjacentHTML('beforeend', rows.map(card).join(''));
-    attachThumbCycle(grid);
+    if (!thumbPreviewInitialized && rows.length) {
+      window.initThumbPreview?.({ containerId: 'channel-video-grid', cardSelector: '.video-card', thumbClass: 'video-thumbnail' });
+      thumbPreviewInitialized = true;
+    }
     state.offset += rows.length;
     state.hasMore = rows.length === state.limit;
     if (!state.hasMore && state.observer) state.observer.disconnect();
   } finally {
-    state.loading = false; updateSentinelUi();
+    state.loading = false;
+    updateSentinelUi();
   }
 }
 
@@ -127,7 +114,8 @@ async function load() {
     }
     if (!grid.children.length) {
       grid.innerHTML = '<article class="empty-state panel">No videos yet.</article>';
-      state.hasMore = false; updateSentinelUi();
+      state.hasMore = false;
+      updateSentinelUi();
     }
   } catch (error) {
     showToast(`Unable to load channel: ${error.message}`, 'error');

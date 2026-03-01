@@ -1,0 +1,1 @@
+ALTER TABLE videos ADD COLUMN view_count INTEGER;

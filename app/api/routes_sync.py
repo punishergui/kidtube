@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from app.services.sync import refresh_enabled_channels
+from app.services.sync import refresh_enabled_channels, refresh_enabled_channels_deep
 
 router = APIRouter()
 
@@ -25,4 +25,10 @@ class SyncSummary(BaseModel):
 @router.post("/run", response_model=SyncSummary)
 async def run_sync() -> SyncSummary:
     summary = await refresh_enabled_channels()
+    return SyncSummary.model_validate(summary)
+
+
+@router.post("/deep", response_model=SyncSummary)
+async def run_deep_sync() -> SyncSummary:
+    summary = await refresh_enabled_channels_deep()
     return SyncSummary.model_validate(summary)

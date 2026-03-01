@@ -15,7 +15,7 @@ COPY app ./app
 
 RUN python -m pip install --upgrade pip && pip install .
 
-RUN mkdir -p /data /app/app/static/uploads \
+RUN mkdir -p /data /app/app/static/uploads /app/static/uploads/kids \
     && chown -R kidtube:kidtube /app /data \
     && chmod 770 /data
 

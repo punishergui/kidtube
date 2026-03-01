@@ -56,6 +56,7 @@ async def resolve_channel(
 async def fetch_latest_videos(
     channel_id: str,
     max_results: int = 10,
+    published_before: str | None = None,
     client: httpx.AsyncClient | None = None,
 ) -> list[dict[str, str | int | bool | None]]:
     api_key = settings.youtube_api_key
@@ -119,11 +120,12 @@ async def fetch_latest_videos(
         video_ids.append(video_id)
 
     durations: dict[str, int | None] = {}
+    view_counts: dict[str, int | None] = {}
     if video_ids:
         details = await _youtube_get(
             "/videos",
             {
-                "part": "contentDetails",
+                "part": "contentDetails,statistics",
                 "id": ",".join(video_ids),
                 "key": api_key,
             },
@@ -132,13 +134,22 @@ async def fetch_latest_videos(
         for item in details.get("items", []):
             video_id = item.get("id")
             iso_duration = item.get("contentDetails", {}).get("duration")
+            view_count_raw = item.get("statistics", {}).get("viewCount")
+            view_count = (
+                int(view_count_raw)
+                if view_count_raw and str(view_count_raw).isdigit()
+                else None
+            )
             if video_id and isinstance(iso_duration, str):
                 durations[video_id] = parse_iso8601_duration_seconds(iso_duration)
+            if video_id:
+                view_counts[str(video_id)] = view_count
 
     records: list[dict[str, str | int | bool | None]] = []
     for record in base_records:
         video_id = str(record["youtube_id"])
         duration_seconds = durations.get(video_id)
+        view_count = view_counts.get(video_id)
         source_url = f"https://www.youtube.com/watch?v={video_id}"
         records.append(
             {
@@ -151,6 +162,112 @@ async def fetch_latest_videos(
                     (duration_seconds is not None and duration_seconds <= 60)
                     or ("/shorts/" in source_url)
                 ),
+                "view_count": view_count,
+            }
+        )
+
+    return records
+
+
+async def fetch_videos_before(
+    channel_id: str,
+    published_before: str,
+    max_results: int = 50,
+    client: httpx.AsyncClient | None = None,
+) -> list[dict[str, str | int | bool | None]]:
+    api_key = settings.youtube_api_key
+    if not api_key:
+        raise YouTubeResolveError(
+            "YOUTUBE_API_KEY is not configured. Video sync requires a valid API key."
+        )
+
+    payload = await _youtube_get(
+        "/search",
+        {
+            "part": "snippet",
+            "channelId": channel_id,
+            "type": "video",
+            "order": "date",
+            "publishedBefore": published_before,
+            "maxResults": max(1, min(max_results, 50)),
+            "key": api_key,
+        },
+        client=client,
+    )
+
+    base_records: list[dict[str, str | None]] = []
+    video_ids: list[str] = []
+    for item in payload.get("items", []):
+        snippet = item.get("snippet", {})
+        video_id = item.get("id", {}).get("videoId")
+        if not video_id:
+            continue
+        thumbnails = snippet.get("thumbnails", {})
+        thumb = (
+            thumbnails.get("high")
+            or thumbnails.get("medium")
+            or thumbnails.get("default")
+            or {}
+        )
+        published_at = snippet.get("publishedAt")
+        if not published_at:
+            continue
+        base_records.append(
+            {
+                "youtube_id": video_id,
+                "title": snippet.get("title") or "Untitled",
+                "thumbnail_url": thumb.get("url") or "",
+                "published_at": published_at,
+            }
+        )
+        video_ids.append(video_id)
+
+    details_by_id: dict[str, tuple[int | None, int | None]] = {}
+    if video_ids:
+        details = await _youtube_get(
+            "/videos",
+            {
+                "part": "contentDetails,statistics",
+                "id": ",".join(video_ids),
+                "key": api_key,
+            },
+            client=client,
+        )
+        for item in details.get("items", []):
+            video_id = item.get("id")
+            if not video_id:
+                continue
+            iso_duration = item.get("contentDetails", {}).get("duration")
+            duration = (
+                parse_iso8601_duration_seconds(iso_duration)
+                if isinstance(iso_duration, str)
+                else None
+            )
+            view_count_raw = item.get("statistics", {}).get("viewCount")
+            view_count = (
+                int(view_count_raw)
+                if view_count_raw and str(view_count_raw).isdigit()
+                else None
+            )
+            details_by_id[str(video_id)] = (duration, view_count)
+
+    records: list[dict[str, str | int | bool | None]] = []
+    for record in base_records:
+        video_id = str(record["youtube_id"])
+        duration_seconds, view_count = details_by_id.get(video_id, (None, None))
+        source_url = f"https://www.youtube.com/watch?v={video_id}"
+        records.append(
+            {
+                "youtube_id": video_id,
+                "title": str(record["title"] or "Untitled"),
+                "thumbnail_url": str(record["thumbnail_url"] or ""),
+                "published_at": str(record["published_at"]),
+                "duration_seconds": duration_seconds,
+                "is_short": bool(
+                    (duration_seconds is not None and duration_seconds <= 60)
+                    or ("/shorts/" in source_url)
+                ),
+                "view_count": view_count,
             }
         )
 
@@ -203,7 +320,7 @@ async def search_videos(
         details = await _youtube_get(
             "/videos",
             {
-                "part": "contentDetails",
+                "part": "contentDetails,statistics",
                 "id": ",".join(video_ids),
                 "key": api_key,
             },

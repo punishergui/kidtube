@@ -21,8 +21,7 @@ const state = {
   kidId: null, channelFilter: queryParams.get('channel_id') || null,
   offset: 0, limit: 30, hasMore: true, loadingMore: false, searchResults: [],
 };
-
-const thumbIntervals = new WeakMap();
+let thumbPreviewInitialized = false;
 
 function setFeedVisible(visible) {
   categoryPanel.hidden = !visible;
@@ -40,48 +39,22 @@ function formatDuration(seconds) {
   return `${mins}:${String(secs).padStart(2, '0')}`;
 }
 
+function formatViews(n) {
+  if (!n || n <= 0) return '';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  return String(n);
+}
+
+function escapeHtml(value) {
+  return String(value || '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+
 function categoryClass(name) {
   const n = String(name || '').toLowerCase();
   if (n.includes('education')) return 'cat-education';
   if (n.includes('art')) return 'cat-art';
   return 'cat-fun';
-}
-
-function thumbsFor(videoId, current) {
-  if (!videoId) return current ? [current] : [];
-  return [
-    current || `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
-    `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-  ];
-}
-
-function attachThumbCycle(root) {
-  root.querySelectorAll('[data-thumbs]').forEach((card) => {
-    const img = card.querySelector('img.thumb');
-    if (!img) return;
-    const list = String(card.dataset.thumbs || '').split(',').filter(Boolean);
-    if (!list.length) return;
-    const original = img.src;
-    card.addEventListener('mouseenter', () => {
-      if (thumbIntervals.has(card)) return;
-      let idx = 0;
-      const timer = window.setInterval(() => {
-        idx = (idx + 1) % list.length;
-        img.src = list[idx] || original;
-      }, 800);
-      thumbIntervals.set(card, timer);
-    });
-    card.addEventListener('mouseleave', () => {
-      const timer = thumbIntervals.get(card);
-      if (timer) {
-        window.clearInterval(timer);
-        thumbIntervals.delete(card);
-      }
-      img.src = original;
-    });
-  });
 }
 
 function categoryMatches(item) {
@@ -107,17 +80,15 @@ function renderCategories() {
 function card(item) {
   const duration = formatDuration(item.video_duration_seconds);
   const category = item.channel_category || 'Fun';
-  const thumbs = thumbsFor(item.video_youtube_id, item.video_thumbnail_url).join(',');
-  return `<a class="video-card" data-thumbs="${thumbs}" href="/watch/${item.video_youtube_id}">
-    <div class="thumb-wrap ratio-16-9">
-      <img class="thumb" src="${item.video_thumbnail_url}" alt="${item.video_title}" />
-      <span class="category-badge ${categoryClass(category)}">${category}</span>
+  return `<a class="video-card" data-video-id="${item.video_youtube_id}" href="/watch/${item.video_youtube_id}">
+    <div class="thumbnail-wrap ratio-16-9">
+      <img class="video-thumbnail" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" />
+      <span class="category-badge ${categoryClass(category)}">${escapeHtml(category)}</span>
       <span class="duration-badge">${duration}</span>
     </div>
     <div class="card-body compact">
-      <div class="channel-line">${item.channel_avatar_url ? `<img class="mini-channel-avatar" src="${item.channel_avatar_url}" alt="${item.channel_title || 'Channel'}" />` : '<span class="mini-channel-avatar">📺</span>'}<span>${item.channel_title || 'Unknown'}</span></div>
-      <h3 class="video-title">${item.video_title}</h3>
-      <p class="video-meta">${duration}</p>
+      <h3 class="video-title">${escapeHtml(item.video_title)}</h3>
+      <p class="video-meta">${escapeHtml(item.channel_title || 'Unknown')}${item.video_view_count ? ` · ${formatViews(item.video_view_count)} views` : ''}</p>
     </div>
   </a>`;
 }
@@ -125,11 +96,10 @@ function card(item) {
 function shortCard(item) {
   const duration = formatDuration(item.video_duration_seconds);
   const category = item.channel_category || 'Fun';
-  const thumbs = thumbsFor(item.video_youtube_id, item.video_thumbnail_url).join(',');
-  return `<a class="shorts-card" title="${item.video_title}" data-thumbs="${thumbs}" href="/watch/${item.video_youtube_id}">
-    <div class="thumb-wrap ratio-9-16">
-      <img class="thumb" src="${item.video_thumbnail_url}" alt="${item.video_title}" />
-      <span class="category-badge ${categoryClass(category)}">${category}</span>
+  return `<a class="shorts-card" title="${escapeHtml(item.video_title)}" data-video-id="${item.video_youtube_id}" href="/watch/${item.video_youtube_id}">
+    <div class="thumbnail-wrap ratio-9-16">
+      <img class="video-thumbnail" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" />
+      <span class="category-badge ${categoryClass(category)}">${escapeHtml(category)}</span>
       <span class="duration-badge">${duration}</span>
     </div>
   </a>`;
@@ -144,30 +114,9 @@ function renderVideos() {
     ? state.allowedChannels.map((channel) => `<a class="channel-pill" href="/channel/${channel.youtube_id}">${channel.avatar_url ? `<img class="channel-pill-avatar" src="${channel.avatar_url}" alt="${channel.title || channel.youtube_id}" />` : '<span class="channel-pill-avatar">📺</span>'}<span class="channel-pill-name">${channel.title || channel.youtube_id}</span></a>`).join('')
     : '<article class="panel empty-state">No allowed channels.</article>';
   shortsGrid.innerHTML = state.shorts.length ? state.shorts.map((item) => shortCard(item)).join('') : '<article class="panel empty-state">No shorts right now.</article>';
-  attachThumbCycle(grid);
-  attachThumbCycle(latestGrid);
-  attachThumbCycle(shortsGrid);
 }
 
-function startRequestCooldown(button, seconds) {
-  const original = button.dataset.cooldownLabel || button.textContent || 'Request';
-  button.dataset.cooldownLabel = original;
-  let remaining = Number(seconds || 0);
-  button.disabled = true;
-  button.textContent = `Try again in ${remaining}s…`;
-  const timer = window.setInterval(() => {
-    remaining -= 1;
-    if (remaining <= 0) {
-      window.clearInterval(timer);
-      button.disabled = false;
-      button.textContent = original;
-      return;
-    }
-    button.textContent = `Try again in ${remaining}s…`;
-  }, 1000);
-}
-
-function renderSearchResults() { /* keep existing compact */
+function renderSearchResults() {
   searchResultsWrap.hidden = !state.searchResults.length;
   if (!state.searchResults.length) return;
   const actionMarkup = (item) => {
@@ -176,9 +125,9 @@ function renderSearchResults() { /* keep existing compact */
     return `<button class="btn-primary" data-request-video="${item.video_id}" data-request-channel="${item.channel_id || ''}">Request</button>`;
   };
   searchResultsGrid.innerHTML = state.searchResults.map((item) => `
-    <article class="video-card search-card">
-      <div class="thumb-wrap ratio-16-9"><img class="thumb" src="${item.thumbnail_url}" alt="${item.title}" /></div>
-      <div class="card-body compact"><h3 class="video-title">${item.title}</h3><p class="video-meta">${item.channel_title || 'Unknown'} · ${formatDuration(item.duration_seconds)}</p>${actionMarkup(item)}</div>
+    <article class="video-card search-card" data-video-id="${item.video_id}">
+      <div class="thumbnail-wrap ratio-16-9"><img class="video-thumbnail" src="${item.thumbnail_url}" alt="${escapeHtml(item.title)}" /></div>
+      <div class="card-body compact"><h3 class="video-title">${escapeHtml(item.title)}</h3><p class="video-meta">${escapeHtml(item.channel_title || 'Unknown')}${item.view_count ? ` · ${formatViews(item.view_count)} views` : ''}</p>${actionMarkup(item)}</div>
     </article>
   `).join('');
 }
@@ -197,13 +146,23 @@ function setupRowArrows() {
     });
   });
 }
-function updateSentinelUi() { if (feedSentinel) feedSentinel.hidden = !state.hasMore; if (sentinelSpinner) sentinelSpinner.hidden = !state.loadingMore; }
+
+function updateSentinelUi() {
+  if (feedSentinel) feedSentinel.hidden = !state.hasMore;
+  if (sentinelSpinner) sentinelSpinner.hidden = !state.loadingMore;
+}
 
 async function loadMore() {
   if (!state.hasMore || state.loadingMore) return;
-  state.loadingMore = true; updateSentinelUi();
+  state.loadingMore = true;
+  updateSentinelUi();
   try {
-    const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset), kid_id: String(state.kidId || ''), ...(state.channelFilter ? { channel_id: String(state.channelFilter) } : {}) });
+    const params = new URLSearchParams({
+      limit: String(state.limit),
+      offset: String(state.offset),
+      kid_id: String(state.kidId || ''),
+      ...(state.channelFilter ? { channel_id: String(state.channelFilter) } : {}),
+    });
     const rows = await requestJson(`/api/feed?${params.toString()}`);
     if (rows.length) {
       state.items = [...state.items, ...rows];
@@ -211,13 +170,18 @@ async function loadMore() {
       renderVideos();
     }
     state.hasMore = rows.length === state.limit;
-  } finally { state.loadingMore = false; updateSentinelUi(); }
+  } finally {
+    state.loadingMore = false;
+    updateSentinelUi();
+  }
 }
 
 function setupInfiniteScroll() {
   if (!feedSentinel) return;
   const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => { if (entry.isIntersecting) void loadMore(); });
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) void loadMore();
+    });
   }, { threshold: 0.1 });
   observer.observe(feedSentinel);
 }
@@ -226,28 +190,65 @@ async function runSearch(query) {
   const trimmed = (query || '').trim();
   const headerInput = document.getElementById('header-search-input');
   if (headerInput && headerInput.value !== trimmed) headerInput.value = trimmed;
-  if (!trimmed) { state.searchResults = []; renderSearchResults(); setFeedVisible(true); return; }
-  if (!state.kidId) { showToast('Select a kid profile before searching.', 'error'); return; }
+  if (!trimmed) {
+    state.searchResults = [];
+    renderSearchResults();
+    setFeedVisible(true);
+    return;
+  }
+  if (!state.kidId) {
+    showToast('Select a kid profile before searching.', 'error');
+    return;
+  }
   const results = await requestJson(`/api/search?q=${encodeURIComponent(trimmed)}&kid_id=${state.kidId}`);
-  state.searchResults = results || []; renderSearchResults(); setFeedVisible(true);
+  state.searchResults = results || [];
+  renderSearchResults();
+  setFeedVisible(true);
 }
 
 async function loadFeedData() {
-  if (!state.kidId) { setFeedVisible(false); return; }
-  setFeedVisible(true); state.items = []; state.offset = 0; state.hasMore = true;
+  if (!state.kidId) {
+    setFeedVisible(false);
+    return;
+  }
+  setFeedVisible(true);
+  state.items = [];
+  state.offset = 0;
+  state.hasMore = true;
   [state.latestPerChannel, state.allowedChannels, state.shorts] = await Promise.all([
-    requestJson('/api/feed/latest-per-channel'), requestJson('/api/channels/allowed'), requestJson('/api/feed/shorts'),
+    requestJson('/api/feed/latest-per-channel'),
+    requestJson('/api/channels/allowed'),
+    requestJson('/api/feed/shorts'),
   ]);
-  renderVideos(); setupRowArrows(); updateSentinelUi();
+  renderVideos();
+  setupRowArrows();
+  updateSentinelUi();
+  if (!thumbPreviewInitialized) {
+    window.initThumbPreview?.({ containerId: 'dashboard-grid', cardSelector: '.video-card', thumbClass: 'video-thumbnail' });
+    window.initThumbPreview?.({ containerId: 'latest-channel-grid', cardSelector: '.video-card', thumbClass: 'video-thumbnail' });
+    window.initThumbPreview?.({ containerId: 'shorts-grid', cardSelector: '.shorts-card', thumbClass: 'video-thumbnail' });
+    window.initThumbPreview?.({ containerId: 'search-results-grid', cardSelector: '.search-card', thumbClass: 'video-thumbnail' });
+    thumbPreviewInitialized = true;
+  }
 }
 
 async function loadDashboard() {
-  const [sessionState, apiCategories] = await Promise.all([requestJson('/api/session'), requestJson('/api/categories')]);
+  const [sessionState, apiCategories] = await Promise.all([
+    requestJson('/api/session'),
+    requestJson('/api/categories'),
+  ]);
   state.categories = [{ id: null, name: 'all', enabled: true }, ...apiCategories.map((c) => ({ id: c.id, name: c.name, enabled: c.enabled }))];
-  state.kidId = sessionState.kid_id; renderCategories(); await loadFeedData(); setupInfiniteScroll();
+  state.kidId = sessionState.kid_id;
+  renderCategories();
+  await loadFeedData();
+  setupInfiniteScroll();
   const initialSearch = queryParams.get('search');
-  if (initialSearch) await runSearch(initialSearch); else await loadMore();
+  if (initialSearch) await runSearch(initialSearch);
+  else await loadMore();
 }
 
-window.addEventListener('kidtube:search-submit', (event) => { void runSearch(event.detail?.query || ''); });
+window.addEventListener('kidtube:search-submit', (event) => {
+  void runSearch(event.detail?.query || '');
+});
+
 loadDashboard().catch((error) => showToast(`Unable to load dashboard: ${error.message}`, 'error'));

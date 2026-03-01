@@ -16,6 +16,8 @@ def _normalize_record(item: dict[str, object]) -> dict[str, object]:
         channel_id = None
     duration = item.get("duration")
     duration_seconds = int(duration) if isinstance(duration, (int, float)) else None
+    view_count_raw = item.get("view_count")
+    view_count = int(view_count_raw) if isinstance(view_count_raw, (int, float)) else None
     source_url = str(item.get("webpage_url") or item.get("url") or "")
 
     upload_date = item.get("upload_date")
@@ -40,6 +42,7 @@ def _normalize_record(item: dict[str, object]) -> dict[str, object]:
             or ("/shorts/" in source_url)
         ),
         "published_at": published_at,
+        "view_count": view_count,
     }
 
 
