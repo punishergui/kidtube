@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlmodel import Session
 
 from app.db.session import get_session
+from app.services.limits import check_access
 
 router = APIRouter()
 
@@ -53,6 +54,14 @@ def list_feed(
             {"category": category},
         ).first()
         if not category_row:
+            return []
+
+    now = datetime.now(timezone.utc)  # noqa: UP017
+    if kid_id is not None:
+        allowed, _reason, _details = check_access(
+            session, kid_id=kid_id, now=now
+        )
+        if not allowed:
             return []
     query = text(
         """
@@ -105,6 +114,13 @@ def latest_per_channel(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
+    now = datetime.now(timezone.utc)  # noqa: UP017
+    if kid_id is not None:
+        allowed, _reason, _details = check_access(
+            session, kid_id=kid_id, now=now
+        )
+        if not allowed:
+            return []
     query = text(
         """
         SELECT
@@ -147,6 +163,13 @@ def list_shorts(
     kid_id: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ) -> list[FeedItem]:
+    now = datetime.now(timezone.utc)  # noqa: UP017
+    if kid_id is not None:
+        allowed, _reason, _details = check_access(
+            session, kid_id=kid_id, now=now
+        )
+        if not allowed:
+            return []
     rows = session.execute(
         text(
             """
