@@ -43,42 +43,39 @@ function setActiveNav() {
   });
 }
 
-async function initSearchLogging() {
+function initHeaderSearch() {
   const form = document.getElementById('header-search-form');
   const input = document.getElementById('header-search-input');
   if (!form || !input) return;
 
-  let timer;
-  const runSearch = async () => {
+  const isDashboard = window.location.pathname === '/dashboard' || window.location.pathname === '/';
+
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
     const query = input.value.trim();
     if (!query) {
-      window.dispatchEvent(new CustomEvent('kidtube:search-results', { detail: { query, results: [] } }));
+      if (isDashboard) {
+        window.dispatchEvent(new CustomEvent('kidtube:search-submit', { detail: { query: '' } }));
+      }
       return;
     }
 
-    try {
-      const sessionState = await requestJson('/api/session');
-      if (!sessionState.kid_id) {
-        showToast('Select a kid profile before searching.', 'error');
-        return;
-      }
-      const results = await requestJson(`/api/search?q=${encodeURIComponent(query)}&kid_id=${sessionState.kid_id}`);
-      window.dispatchEvent(new CustomEvent('kidtube:search-results', { detail: { query, results, kidId: sessionState.kid_id } }));
-    } catch (error) {
-      showToast(`Unable to search: ${error.message}`, 'error');
+    if (!isDashboard) {
+      window.location.href = `/dashboard?search=${encodeURIComponent(query)}`;
+      return;
     }
-  };
 
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    await runSearch();
+    window.dispatchEvent(new CustomEvent('kidtube:search-submit', { detail: { query } }));
   });
+}
 
-  input.addEventListener('keyup', () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => { void runSearch(); }, 250);
+function initProfileMenu() {
+  document.getElementById('switch-profile')?.addEventListener('click', async () => {
+    await fetch('/api/session/logout', { method: 'POST' });
+    window.location = '/';
   });
 }
 
 setActiveNav();
-initSearchLogging();
+initHeaderSearch();
+initProfileMenu();

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -11,14 +9,6 @@ from sqlmodel import Session, select
 
 from app.db.models import Kid
 from app.db.session import engine
-from app.services.limits import (
-    ACCESS_REASON_BEDTIME,
-    ACCESS_REASON_CATEGORY_LIMIT,
-    ACCESS_REASON_DAILY_LIMIT,
-    ACCESS_REASON_PENDING_APPROVAL,
-    ACCESS_REASON_SCHEDULE,
-    check_access,
-)
 
 router = APIRouter()
 
@@ -53,6 +43,17 @@ def render_page(request: Request, template_name: str, **context: str) -> HTMLRes
     return response
 
 
+
+
+def _current_kid_context(request: Request) -> dict[str, str] | None:
+    kid_id = request.session.get("kid_id")
+    if not kid_id:
+        return None
+    with Session(engine) as session:
+        kid = session.get(Kid, kid_id)
+    if not kid:
+        return None
+    return {"name": kid.name, "avatar_url": _kid_avatar_url(kid.id or 0, kid.avatar_url)}
 @router.get("/", response_class=HTMLResponse, response_model=None)
 def ui_profiles(request: Request) -> HTMLResponse | RedirectResponse:
     if request.session.get("kid_id"):
@@ -133,6 +134,14 @@ def ui_sync_redirect() -> RedirectResponse:
     return RedirectResponse(url="/admin/sync", status_code=307)
 
 
+
+
+@router.get("/watch", response_class=HTMLResponse, response_model=None)
+def ui_watch_query(request: Request, v: str | None = None) -> RedirectResponse:
+    if not v:
+        return RedirectResponse(url="/dashboard", status_code=307)
+    return RedirectResponse(url=f"/watch/{v}", status_code=307)
+
 @router.get("/watch/{youtube_id}", response_class=HTMLResponse, response_model=None)
 def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectResponse:
     kid_id = request.session.get("kid_id")
@@ -146,22 +155,6 @@ def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectRespon
             request.session.pop("pending_kid_id", None)
             return RedirectResponse(url="/", status_code=307)
 
-        allowed, reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            video_id=youtube_id,
-            now=datetime.now(timezone.utc),  # noqa: UP017
-        )
-        if not allowed and reason:
-            if reason in {ACCESS_REASON_SCHEDULE, ACCESS_REASON_BEDTIME}:
-                query = urlencode({"unlock_time": "your allowed schedule"})
-                return RedirectResponse(url=f"/blocked/schedule?{query}", status_code=307)
-            if reason in {ACCESS_REASON_DAILY_LIMIT, ACCESS_REASON_CATEGORY_LIMIT}:
-                return RedirectResponse(url="/blocked/time", status_code=307)
-            if reason == ACCESS_REASON_PENDING_APPROVAL:
-                return RedirectResponse(url="/blocked/pending", status_code=307)
-            return RedirectResponse(url="/blocked/pending", status_code=307)
-
     embed_origin = str(request.base_url).rstrip("/")
     return render_page(
         request,
@@ -170,6 +163,7 @@ def ui_watch(request: Request, youtube_id: str) -> HTMLResponse | RedirectRespon
         youtube_id=youtube_id,
         embed_origin=embed_origin,
         nav_mode="kid",
+        current_kid=_current_kid_context(request),
     )
 
 
@@ -241,4 +235,5 @@ def ui_channel(request: Request, channel_id: str) -> HTMLResponse:
         page="channel",
         channel_id=channel_id,
         nav_mode="kid",
+        current_kid=_current_kid_context(request),
     )

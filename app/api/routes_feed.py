@@ -112,24 +112,7 @@ def list_feed(
             "offset": offset,
         },
     ).mappings().all()
-    if kid_id is None:
-        return [FeedItem.model_validate(row) for row in rows]
-
-    filtered: list[FeedItem] = []
-    for row in rows:
-        allowed, _reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            video_id=row["video_youtube_id"],
-            channel_id=row["channel_youtube_id"],
-            category_id=category_id,
-            is_shorts=bool(row["video_is_short"]),
-            title=row["video_title"],
-            now=now,
-        )
-        if allowed:
-            filtered.append(FeedItem.model_validate(row))
-    return filtered
+    return [FeedItem.model_validate(row) for row in rows]
 
 
 @router.get("/latest-per-channel", response_model=list[FeedItem])
@@ -176,23 +159,7 @@ def latest_per_channel(
         """
     )
     rows = session.execute(query).mappings().all()
-    if kid_id is None:
-        return [FeedItem.model_validate(row) for row in rows]
-
-    filtered: list[FeedItem] = []
-    for row in rows:
-        allowed, _reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            video_id=row["video_youtube_id"],
-            channel_id=row["channel_youtube_id"],
-            is_shorts=bool(row["video_is_short"]),
-            title=row["video_title"],
-            now=now,
-        )
-        if allowed:
-            filtered.append(FeedItem.model_validate(row))
-    return filtered
+    return [FeedItem.model_validate(row) for row in rows]
 
 
 @router.get('/shorts', response_model=list[FeedItem])
@@ -231,20 +198,4 @@ def list_shorts(
         ),
         {"limit": limit},
     ).mappings().all()
-    if kid_id is None:
-        return [FeedItem.model_validate(row) for row in rows]
-
-    filtered: list[FeedItem] = []
-    for row in rows:
-        allowed, _reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            video_id=row["video_youtube_id"],
-            channel_id=row["channel_youtube_id"],
-            is_shorts=True,
-            title=row["video_title"],
-            now=now,
-        )
-        if allowed:
-            filtered.append(FeedItem.model_validate(row))
-    return filtered
+    return [FeedItem.model_validate(row) for row in rows]

@@ -3,7 +3,6 @@ import { requestJson, showToast } from '/static/app.js';
 const grid = document.getElementById('dashboard-grid');
 const latestGrid = document.getElementById('latest-channel-grid');
 const categoryPills = document.getElementById('category-pills');
-const moreButton = document.getElementById('see-more-btn');
 const categoryPanel = document.getElementById('category-panel');
 const newAdventures = document.getElementById('new-adventures');
 const latestVideos = document.getElementById('latest-videos');
@@ -11,6 +10,8 @@ const searchResultsWrap = document.getElementById('search-results');
 const searchResultsGrid = document.getElementById('search-results-grid');
 const allowedChannelGrid = document.getElementById('allowed-channel-grid');
 const shortsGrid = document.getElementById('shorts-grid');
+const feedSentinel = document.getElementById('feed-sentinel');
+const sentinelSpinner = feedSentinel?.querySelector('.feed-spinner');
 
 const queryParams = new URLSearchParams(window.location.search);
 
@@ -26,6 +27,7 @@ const state = {
   offset: 0,
   limit: 30,
   hasMore: true,
+  loadingMore: false,
   searchResults: [],
 };
 
@@ -163,31 +165,119 @@ function renderSearchResults() {
   }));
 }
 
+function updateArrowState(row, left, right) {
+  const maxScrollLeft = row.scrollWidth - row.clientWidth;
+  const canScroll = maxScrollLeft > 1;
+  if (!canScroll) {
+    left.hidden = true;
+    right.hidden = true;
+    return;
+  }
+  left.hidden = row.scrollLeft <= 1;
+  right.hidden = row.scrollLeft + row.clientWidth >= row.scrollWidth - 1;
+}
+
 function setupRowArrows() {
   document.querySelectorAll('.section-row, .channel-carousel').forEach((row) => {
-    const parent = row.parentElement;
-    if (!parent || parent.querySelector('.row-nav')) return;
-    const controls = document.createElement('div');
-    controls.className = 'row-nav';
-    controls.innerHTML = '<button class="row-nav-btn" type="button" aria-label="Scroll left">◀</button><button class="row-nav-btn" type="button" aria-label="Scroll right">▶</button>';
-    const [left, right] = controls.querySelectorAll('button');
-    left.addEventListener('click', () => row.scrollBy({ left: -640, behavior: 'smooth' }));
-    right.addEventListener('click', () => row.scrollBy({ left: 640, behavior: 'smooth' }));
-    parent.appendChild(controls);
+    const section = row.closest('.video-section');
+    if (!section || section.querySelector('.row-nav-btn-left')) return;
+
+    section.classList.add('row-shell');
+    const left = document.createElement('button');
+    left.type = 'button';
+    left.className = 'row-nav-btn row-nav-btn-left';
+    left.setAttribute('aria-label', 'Scroll left');
+    left.innerHTML = '◀';
+
+    const right = document.createElement('button');
+    right.type = 'button';
+    right.className = 'row-nav-btn row-nav-btn-right';
+    right.setAttribute('aria-label', 'Scroll right');
+    right.innerHTML = '▶';
+
+    const step = () => {
+      const firstCard = row.querySelector('.video-card, .shorts-card, .channel-pill');
+      if (!firstCard) return 640;
+      const gap = Number.parseFloat(window.getComputedStyle(row).columnGap || window.getComputedStyle(row).gap || '0') || 0;
+      return (firstCard.offsetWidth + gap) * 3;
+    };
+
+    left.addEventListener('click', () => {
+      row.scrollBy({ left: -step(), behavior: 'smooth' });
+      window.setTimeout(() => updateArrowState(row, left, right), 220);
+    });
+    right.addEventListener('click', () => {
+      row.scrollBy({ left: step(), behavior: 'smooth' });
+      window.setTimeout(() => updateArrowState(row, left, right), 220);
+    });
+
+    row.addEventListener('scroll', () => updateArrowState(row, left, right), { passive: true });
+    window.addEventListener('resize', () => updateArrowState(row, left, right));
+
+    section.append(left, right);
+    updateArrowState(row, left, right);
   });
 }
 
+function updateSentinelUi() {
+  if (!feedSentinel) return;
+  feedSentinel.hidden = !state.hasMore;
+  if (sentinelSpinner) sentinelSpinner.hidden = !state.loadingMore;
+}
+
 async function loadMore() {
-  if (!state.hasMore) return;
-  const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
-  if (state.channelFilter) params.set('channel_id', state.channelFilter);
-  if (state.kidId) params.set('kid_id', String(state.kidId));
-  const page = await requestJson(`/api/feed?${params.toString()}`);
-  state.items.push(...page);
-  state.offset += page.length;
-  state.hasMore = page.length === state.limit;
-  if (moreButton) moreButton.hidden = !state.hasMore;
-  renderVideos();
+  if (!state.hasMore || state.loadingMore) return;
+  state.loadingMore = true;
+  updateSentinelUi();
+
+  try {
+    const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
+    if (state.channelFilter) params.set('channel_id', state.channelFilter);
+    if (state.kidId) params.set('kid_id', String(state.kidId));
+    const page = await requestJson(`/api/feed?${params.toString()}`);
+    state.items.push(...page);
+    state.offset += page.length;
+    state.hasMore = page.length === state.limit;
+    renderVideos();
+    setupRowArrows();
+  } finally {
+    state.loadingMore = false;
+    updateSentinelUi();
+  }
+}
+
+function setupInfiniteScroll() {
+  if (!feedSentinel) return;
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      void loadMore();
+    });
+  }, { threshold: 0.1 });
+  observer.observe(feedSentinel);
+}
+
+async function runSearch(query) {
+  const trimmed = (query || '').trim();
+  const headerInput = document.getElementById('header-search-input');
+  if (headerInput && headerInput.value !== trimmed) headerInput.value = trimmed;
+
+  if (!trimmed) {
+    state.searchResults = [];
+    renderSearchResults();
+    setFeedVisible(true);
+    return;
+  }
+
+  if (!state.kidId) {
+    showToast('Select a kid profile before searching.', 'error');
+    return;
+  }
+
+  const results = await requestJson(`/api/search?q=${encodeURIComponent(trimmed)}&kid_id=${state.kidId}`);
+  state.searchResults = results || [];
+  renderSearchResults();
+  setFeedVisible(true);
 }
 
 async function loadFeedData() {
@@ -204,7 +294,9 @@ async function loadFeedData() {
     requestJson(`/api/channels/allowed?kid_id=${state.kidId}`),
     requestJson(`/api/feed/shorts?kid_id=${state.kidId}`),
   ]);
-  await loadMore();
+  renderVideos();
+  setupRowArrows();
+  updateSentinelUi();
 }
 
 async function loadDashboard() {
@@ -213,28 +305,18 @@ async function loadDashboard() {
   state.kidId = sessionState.kid_id;
   renderCategories();
   await loadFeedData();
-  setupRowArrows();
+  setupInfiniteScroll();
+
+  const initialSearch = queryParams.get('search');
+  if (initialSearch) {
+    await runSearch(initialSearch);
+  } else {
+    await loadMore();
+  }
 }
 
-moreButton?.addEventListener('click', async () => {
-  moreButton.disabled = true;
-  await loadMore();
-  moreButton.disabled = false;
-});
-window.addEventListener('kidtube:search-results', (event) => {
-  state.searchResults = event.detail.results || [];
-  renderSearchResults();
-});
-
-
-document.getElementById('switch-profile')?.addEventListener('click', async () => {
-  await fetch('/api/session/logout', { method: 'POST' });
-  window.location = '/';
-});
-
-document.getElementById('parent-controls')?.addEventListener('click', async () => {
-  await fetch('/api/session/logout', { method: 'POST' });
-  window.location = '/?admin=1';
+window.addEventListener('kidtube:search-submit', (event) => {
+  void runSearch(event.detail?.query || '');
 });
 
 loadDashboard().catch((error) => showToast(`Unable to load dashboard: ${error.message}`, 'error'));
