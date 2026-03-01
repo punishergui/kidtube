@@ -76,6 +76,30 @@ function initProfileMenu() {
   });
 }
 
+function initAdminAccess() {
+  document.querySelectorAll('.js-admin-link').forEach((link) => {
+    link.addEventListener('click', async (event) => {
+      try {
+        const sessionState = await requestJson('/api/session');
+        if (!sessionState?.kid_id) return;
+
+        event.preventDefault();
+        const pin = window.prompt('Enter admin PIN');
+        if (pin === null) return;
+
+        await requestJson('/api/session/admin-verify', {
+          method: 'POST',
+          body: JSON.stringify({ pin: pin.trim() }),
+        });
+        window.location.href = '/admin';
+      } catch (error) {
+        showToast(`Admin access denied: ${error.message}`, 'error');
+      }
+    });
+  });
+}
+
 setActiveNav();
 initHeaderSearch();
 initProfileMenu();
+initAdminAccess();

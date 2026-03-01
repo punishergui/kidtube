@@ -16,6 +16,7 @@ def _normalize_record(item: dict[str, object]) -> dict[str, object]:
         channel_id = None
     duration = item.get("duration")
     duration_seconds = int(duration) if isinstance(duration, (int, float)) else None
+    source_url = str(item.get("webpage_url") or item.get("url") or "")
 
     upload_date = item.get("upload_date")
     published_at = None
@@ -33,6 +34,11 @@ def _normalize_record(item: dict[str, object]) -> dict[str, object]:
         "channel_id": channel_id,
         "thumbnail_url": str(item.get("thumbnail") or f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"),
         "duration": duration_seconds,
+        "duration_seconds": duration_seconds,
+        "is_short": bool(
+            (duration_seconds is not None and duration_seconds <= 60)
+            or ("/shorts/" in source_url)
+        ),
         "published_at": published_at,
     }
 

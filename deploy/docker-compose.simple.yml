@@ -13,4 +13,5 @@ services:
       DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY:-}
     volumes:
       - ./data:/data
+      - ./data/avatars:/app/static/uploads/kids
     restart: unless-stopped

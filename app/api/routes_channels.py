@@ -177,20 +177,7 @@ def list_allowed_channels(
             """
         )
     ).mappings().all()
-    if kid_id is None:
-        return [dict(row) for row in rows]
-
-    filtered: list[dict[str, object | None]] = []
-    for row in rows:
-        allowed, _reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            channel_id=str(row["youtube_id"]),
-            now=now,
-        )
-        if allowed:
-            filtered.append(dict(row))
-    return filtered
+    return [dict(row) for row in rows]
 
 
 
@@ -231,7 +218,8 @@ def channel_detail(
 def channel_videos(
     channel_youtube_id: str,
     kid_id: int | None = Query(default=None),
-    limit: int = Query(default=30, ge=1, le=100),
+    limit: int = Query(default=24, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
     now = datetime.now(timezone.utc)  # noqa: UP017
@@ -247,7 +235,8 @@ def channel_videos(
                 v.youtube_id AS video_youtube_id,
                 v.title AS video_title,
                 v.thumbnail_url AS video_thumbnail_url,
-                v.published_at AS video_published_at
+                v.published_at AS video_published_at,
+                v.duration_seconds AS video_duration_seconds
             FROM videos v
             JOIN channels c ON c.id = v.channel_id
             WHERE c.youtube_id = :channel_youtube_id
@@ -255,23 +244,9 @@ def channel_videos(
               AND c.allowed = 1
               AND c.blocked = 0
             ORDER BY v.published_at DESC
-            LIMIT :limit
+            LIMIT :limit OFFSET :offset
             """
         ),
-        {"channel_youtube_id": channel_youtube_id, "limit": limit},
+        {"channel_youtube_id": channel_youtube_id, "limit": limit, "offset": offset},
     ).mappings().all()
-    if kid_id is None:
-        return [dict(row) for row in rows]
-    filtered: list[dict[str, object | None]] = []
-    for row in rows:
-        allowed, _reason, _details = check_access(
-            session,
-            kid_id=kid_id,
-            video_id=str(row["video_youtube_id"]),
-            channel_id=channel_youtube_id,
-            title=str(row["video_title"]),
-            now=now,
-        )
-        if allowed:
-            filtered.append(dict(row))
-    return filtered
+    return [dict(row) for row in rows]

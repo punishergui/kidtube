@@ -57,7 +57,7 @@ async def fetch_latest_videos(
     channel_id: str,
     max_results: int = 10,
     client: httpx.AsyncClient | None = None,
-) -> list[dict[str, str]]:
+) -> list[dict[str, str | int | bool | None]]:
     api_key = settings.youtube_api_key
     if not api_key:
         raise YouTubeResolveError(
@@ -92,7 +92,8 @@ async def fetch_latest_videos(
         client=client,
     )
 
-    records: list[dict[str, str]] = []
+    base_records: list[dict[str, str | None]] = []
+    video_ids: list[str] = []
     for item in payload.get("items", []):
         snippet = item.get("snippet", {})
         resource = snippet.get("resourceId", {})
@@ -107,12 +108,49 @@ async def fetch_latest_videos(
         published_at = snippet.get("publishedAt")
         if not published_at:
             continue
-        records.append(
+        base_records.append(
             {
                 "youtube_id": video_id,
                 "title": snippet.get("title") or "Untitled",
                 "thumbnail_url": thumb.get("url") or "",
                 "published_at": published_at,
+            }
+        )
+        video_ids.append(video_id)
+
+    durations: dict[str, int | None] = {}
+    if video_ids:
+        details = await _youtube_get(
+            "/videos",
+            {
+                "part": "contentDetails",
+                "id": ",".join(video_ids),
+                "key": api_key,
+            },
+            client=client,
+        )
+        for item in details.get("items", []):
+            video_id = item.get("id")
+            iso_duration = item.get("contentDetails", {}).get("duration")
+            if video_id and isinstance(iso_duration, str):
+                durations[video_id] = parse_iso8601_duration_seconds(iso_duration)
+
+    records: list[dict[str, str | int | bool | None]] = []
+    for record in base_records:
+        video_id = str(record["youtube_id"])
+        duration_seconds = durations.get(video_id)
+        source_url = f"https://www.youtube.com/watch?v={video_id}"
+        records.append(
+            {
+                "youtube_id": video_id,
+                "title": str(record["title"] or "Untitled"),
+                "thumbnail_url": str(record["thumbnail_url"] or ""),
+                "published_at": str(record["published_at"]),
+                "duration_seconds": duration_seconds,
+                "is_short": bool(
+                    (duration_seconds is not None and duration_seconds <= 60)
+                    or ("/shorts/" in source_url)
+                ),
             }
         )
 

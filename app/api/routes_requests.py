@@ -48,7 +48,9 @@ class RequestQueueRead(BaseModel):
 
 
 async def _send_discord_request_notification(request_row: Request, session: Session) -> None:
-    if not settings.discord_approval_webhook_url:
+    webhook_url = settings.discord_approval_webhook_url
+    if not webhook_url:
+        logger.info("discord_webhook_not_configured")
         return
 
     kid_name = "Unknown kid"
@@ -90,20 +92,30 @@ async def _send_discord_request_notification(request_row: Request, session: Sess
 
     try:
         async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
-            response = await client.post(settings.discord_approval_webhook_url, json=payload)
+            response = await client.post(webhook_url, json=payload)
             if response.status_code >= 400:
                 logger.error(
                     "discord_webhook_send_failed",
                     extra={
                         "request_id": request_row.id,
+                        "webhook_url": webhook_url,
                         "status_code": response.status_code,
                         "response_body": response.text,
+                    },
+                )
+            else:
+                logger.info(
+                    "discord_webhook_send_ok",
+                    extra={
+                        "request_id": request_row.id,
+                        "webhook_url": webhook_url,
+                        "status_code": response.status_code,
                     },
                 )
     except httpx.HTTPError as exc:
         logger.error(
             "discord_webhook_send_failed",
-            extra={"request_id": request_row.id, "error": str(exc)},
+            extra={"request_id": request_row.id, "webhook_url": webhook_url, "error": str(exc)},
         )
 
 
