@@ -20,6 +20,7 @@ class FeedItem(BaseModel):
     channel_avatar_url: str | None
     channel_category: str | None
     channel_category_id: int | None = None
+    channel_category_name: str | None = None
     video_youtube_id: str
     video_title: str
     video_thumbnail_url: str
@@ -75,6 +76,7 @@ def list_feed(
             c.avatar_url AS channel_avatar_url,
             c.category AS channel_category,
             c.category_id AS channel_category_id,
+            cat.name AS channel_category_name,
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
@@ -135,6 +137,7 @@ def latest_per_channel(
             c.avatar_url AS channel_avatar_url,
             c.category AS channel_category,
             c.category_id AS channel_category_id,
+            cat.name AS channel_category_name,
             v.youtube_id AS video_youtube_id,
             v.title AS video_title,
             v.thumbnail_url AS video_thumbnail_url,
@@ -188,15 +191,17 @@ def list_shorts(
                 c.avatar_url AS channel_avatar_url,
                 c.category AS channel_category,
                 c.category_id AS channel_category_id,
+                cat.name AS channel_category_name,
                 v.youtube_id AS video_youtube_id,
                 v.title AS video_title,
                 v.thumbnail_url AS video_thumbnail_url,
                 v.published_at AS video_published_at,
                 v.duration_seconds AS video_duration_seconds,
                 v.is_short AS video_is_short,
-            v.view_count AS video_view_count
+                v.view_count AS video_view_count
             FROM videos v
             JOIN channels c ON c.id = v.channel_id
+            LEFT JOIN categories cat ON cat.id = c.category_id
             WHERE c.enabled = 1 AND c.allowed = 1 AND c.blocked = 0 AND v.is_short = 1
             ORDER BY v.published_at DESC
             LIMIT :limit

@@ -4,7 +4,11 @@
 <section class="page-head"><a class="btn-secondary" href="/">← Back</a></section>
 <section id="channel-header" class="panel channel-header"></section>
 <section class="video-section">
-  <div class="section-head"><h2>Channel Videos</h2></div>
+  <div class="channel-tabs">
+    <button class="channel-tab active" data-content-type="videos" type="button">Videos</button>
+    <button class="channel-tab" data-content-type="shorts" type="button">Shorts</button>
+  </div>
+  <div class="section-head"><h2 id="channel-videos-heading">Channel Videos</h2></div>
   <section id="channel-video-grid" class="card-grid channel-video-grid" data-channel-id="{{ channel_id }}"></section>
   <div id="channel-feed-sentinel" class="feed-sentinel" hidden>
     <div class="feed-spinner" hidden></div>

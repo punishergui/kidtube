@@ -6,6 +6,23 @@ const form = document.getElementById('add-kid-form');
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 let categories = [];
 
+
+function timeOptions() {
+  const opts = [];
+  for (let h = 0; h < 24; h += 1) {
+    for (let m = 0; m < 60; m += 15) {
+      const hh = String(h).padStart(2, '0');
+      const mm = String(m).padStart(2, '0');
+      const val = `${hh}:${mm}`;
+      const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      const ampm = h < 12 ? 'AM' : 'PM';
+      const label = `${hour12}:${mm} ${ampm}`;
+      opts.push(`<option value="${val}">${label}</option>`);
+    }
+  }
+  return opts.join('');
+}
+
 function scheduleGrid(kid) {
   const columns = DAYS.map(
     (day, dayIndex) => `
@@ -13,8 +30,18 @@ function scheduleGrid(kid) {
         <div class="schedule-day-head"><strong>${day}</strong></div>
         <div class="schedule-pills" data-schedule-pills="${kid.id}:${dayIndex}"></div>
         <div class="schedule-inline-form" data-schedule-form="${kid.id}:${dayIndex}" hidden>
-          <label>Start:<input type="time" data-schedule-start="${kid.id}:${dayIndex}" required /></label>
-          <label>End:<input type="time" data-schedule-end="${kid.id}:${dayIndex}" required /></label>
+          <label>Start:
+            <select data-schedule-start="${kid.id}:${dayIndex}" required>
+              <option value="">-- Start --</option>
+              ${timeOptions()}
+            </select>
+          </label>
+          <label>End:
+            <select data-schedule-end="${kid.id}:${dayIndex}" required>
+              <option value="">-- End --</option>
+              ${timeOptions()}
+            </select>
+          </label>
           <div class="schedule-inline-actions">
             <button class="btn-primary" type="button" data-save-schedule="${kid.id}:${dayIndex}">Save</button>
             <button class="btn-secondary" type="button" data-cancel-schedule="${kid.id}:${dayIndex}">Cancel</button>

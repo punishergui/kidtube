@@ -185,12 +185,22 @@ def channel_detail(
     row = session.execute(
         text(
             """
-            SELECT id, youtube_id, title, avatar_url, banner_url, category, category_id, input
-            FROM channels
-            WHERE youtube_id = :channel_youtube_id
-              AND enabled = 1
-              AND allowed = 1
-              AND blocked = 0
+            SELECT
+                c.id,
+                c.youtube_id,
+                c.title,
+                c.avatar_url,
+                c.banner_url,
+                c.category,
+                c.category_id,
+                c.input,
+                cat.name AS category_name
+            FROM channels c
+            LEFT JOIN categories cat ON cat.id = c.category_id
+            WHERE c.youtube_id = :channel_youtube_id
+              AND c.enabled = 1
+              AND c.allowed = 1
+              AND c.blocked = 0
             LIMIT 1
             """
         ),
@@ -214,6 +224,7 @@ def channel_videos(
     kid_id: int | None = Query(default=None),
     limit: int = Query(default=24, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    content_type: str = Query(default="all", pattern="^(all|videos|shorts)$"),
     session: Session = Depends(get_session),
 ) -> list[dict[str, object | None]]:
     rows = session.execute(
@@ -225,6 +236,7 @@ def channel_videos(
                 v.thumbnail_url AS video_thumbnail_url,
                 v.published_at AS video_published_at,
                 v.duration_seconds AS video_duration_seconds,
+                v.is_short AS video_is_short,
                 v.view_count AS video_view_count
             FROM videos v
             JOIN channels c ON c.id = v.channel_id
@@ -232,10 +244,20 @@ def channel_videos(
               AND c.enabled = 1
               AND c.allowed = 1
               AND c.blocked = 0
+              AND (
+                :content_type = 'all'
+                OR (:content_type = 'videos' AND v.is_short = 0)
+                OR (:content_type = 'shorts' AND v.is_short = 1)
+              )
             ORDER BY v.published_at DESC
             LIMIT :limit OFFSET :offset
             """
         ),
-        {"channel_youtube_id": channel_youtube_id, "limit": limit, "offset": offset},
+                {
+            "channel_youtube_id": channel_youtube_id,
+            "limit": limit,
+            "offset": offset,
+            "content_type": content_type,
+        },
     ).mappings().all()
     return [dict(row) for row in rows]

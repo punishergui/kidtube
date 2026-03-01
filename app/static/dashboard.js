@@ -51,9 +51,10 @@ function escapeHtml(value) {
 }
 
 function categoryClass(name) {
-  const n = String(name || '').toLowerCase();
-  if (n.includes('education')) return 'cat-education';
-  if (n.includes('art')) return 'cat-art';
+  const n = String(name || '').toLowerCase().trim();
+  if (n.includes('edu') || n.includes('learn') || n.includes('school')) return 'cat-education';
+  if (n.includes('art') || n.includes('draw') || n.includes('craft')) return 'cat-art';
+  if (n.includes('kid') || n.includes('fun') || n.includes('play')) return 'cat-fun';
   return 'cat-fun';
 }
 
@@ -79,7 +80,8 @@ function renderCategories() {
 
 function card(item) {
   const duration = formatDuration(item.video_duration_seconds);
-  const category = item.channel_category || 'Fun';
+  const categoryLabel = item.channel_category_name || item.channel_category || 'Fun';
+  const category = categoryLabel;
   return `<a class="video-card" data-video-id="${item.video_youtube_id}" href="/watch/${item.video_youtube_id}">
     <div class="thumbnail-wrap ratio-16-9">
       <img class="video-thumbnail" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" />
@@ -95,7 +97,8 @@ function card(item) {
 
 function shortCard(item) {
   const duration = formatDuration(item.video_duration_seconds);
-  const category = item.channel_category || 'Fun';
+  const categoryLabel = item.channel_category_name || item.channel_category || 'Fun';
+  const category = categoryLabel;
   return `<a class="shorts-card" title="${escapeHtml(item.video_title)}" data-video-id="${item.video_youtube_id}" href="/watch/${item.video_youtube_id}">
     <div class="thumbnail-wrap ratio-9-16">
       <img class="video-thumbnail" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" />

@@ -6,7 +6,7 @@ const channelId = grid?.dataset.channelId;
 const sentinel = document.getElementById('channel-feed-sentinel');
 const spinner = sentinel?.querySelector('.feed-spinner');
 
-const state = { observer: null, kidId: null, limit: 24, offset: 0, hasMore: true, loading: false };
+const state = { observer: null, kidId: null, limit: 24, offset: 0, hasMore: true, loading: false, contentType: 'videos' };
 let thumbPreviewInitialized = false;
 
 function escapeHtml(value) {
@@ -31,15 +31,17 @@ function formatViews(n) {
 }
 
 function categoryClass(name) {
-  const n = String(name || '').toLowerCase();
-  if (n.includes('education')) return 'cat-education';
-  if (n.includes('art')) return 'cat-art';
+  const n = String(name || '').toLowerCase().trim();
+  if (n.includes('edu') || n.includes('learn') || n.includes('school')) return 'cat-education';
+  if (n.includes('art') || n.includes('draw') || n.includes('craft')) return 'cat-art';
+  if (n.includes('kid') || n.includes('fun') || n.includes('play')) return 'cat-fun';
   return 'cat-fun';
 }
 
 function card(item) {
   const duration = formatDuration(item.video_duration_seconds);
-  const category = channelHeader.dataset.category || 'Fun';
+  const categoryLabel = channelHeader.dataset.categoryName || channelHeader.dataset.category || 'Fun';
+  const category = categoryLabel;
   return `<a class="video-card panel channel-video-card" data-video-id="${item.video_youtube_id}" href="/watch/${item.video_youtube_id}">
     <div class="thumbnail-wrap ratio-16-9">
       <img class="video-thumbnail" src="${item.video_thumbnail_url}" alt="${escapeHtml(item.video_title)}" />
@@ -64,7 +66,7 @@ async function loadMore() {
   state.loading = true;
   updateSentinelUi();
   try {
-    const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset) });
+    const params = new URLSearchParams({ limit: String(state.limit), offset: String(state.offset), content_type: state.contentType });
     const rows = await requestJson(`/api/channels/${encodeURIComponent(channelId)}/videos?${params.toString()}`);
     if (rows.length) grid.insertAdjacentHTML('beforeend', rows.map(card).join(''));
     if (!thumbPreviewInitialized && rows.length) {
@@ -103,7 +105,28 @@ async function load() {
     channelHeader.dataset.channelTitle = channel.title || channel.youtube_id || 'Unknown';
     channelHeader.dataset.avatar = channel.avatar_url || '';
     channelHeader.dataset.category = channel.category || 'Fun';
+    channelHeader.dataset.categoryName = channel.category_name || '';
     channelHeader.innerHTML = `<div class="channel-page-meta">${channel.avatar_url ? `<img class="channel-page-avatar" src="${channel.avatar_url}" alt="${escapeHtml(channel.title || channel.youtube_id)}" />` : '<span class="channel-page-avatar">📺</span>'}<div><h2>${escapeHtml(channel.title || channel.youtube_id)}</h2><p class="small">${escapeHtml(channel.input || '')}</p></div></div>`;
+
+    const heading = document.getElementById('channel-videos-heading');
+    if (heading) heading.textContent = state.contentType === 'shorts' ? 'Channel Shorts' : 'Channel Videos';
+
+    document.querySelectorAll('.channel-tab').forEach((tab) => {
+      tab.classList.toggle('active', tab.dataset.contentType === state.contentType);
+      tab.addEventListener('click', async () => {
+        const nextType = tab.dataset.contentType || 'videos';
+        if (nextType === state.contentType) return;
+        state.contentType = nextType;
+        state.offset = 0;
+        state.hasMore = true;
+        grid.innerHTML = '';
+        document.querySelectorAll('.channel-tab').forEach((btn) => btn.classList.toggle('active', btn.dataset.contentType === state.contentType));
+        if (heading) heading.textContent = state.contentType === 'shorts' ? 'Channel Shorts' : 'Channel Videos';
+        if (state.observer && sentinel) state.observer.observe(sentinel);
+        updateSentinelUi();
+        await loadMore();
+      });
+    });
 
     grid.innerHTML = '';
     setupInfiniteScroll();
